@@ -24,3 +24,8 @@ android/app/src/main/assets/
 __pycache__/
 .DS_Store
 Thumbs.db
+
+windows/renderer/
+windows/server-config.json
+releases/
+*.zip
