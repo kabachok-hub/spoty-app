@@ -1,0 +1,35 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),ts=require('typescript');
+function load(path,modules){const ctx={exports:{},require:n=>{assert(n in modules,'Missing '+n);return modules[n];},console,Set,Map,Date,Promise,localStorage:{getItem:()=>null,setItem(){}},window:{innerWidth:400,addEventListener(){}},document:{visibilityState:'visible'},setTimeout:()=>0};vm.createContext(ctx);vm.runInContext(ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,ctx);return ctx.exports;}
+const t=id=>({id,title:id,artist_name:'Seed',artist_id:'seed',duration:180});
+const A={id:'a',title:'Mix A',query:'cluster:Seed|A'},B={id:'b',title:'Mix B',query:'cluster:Seed|B'},C={id:'c',title:'Mix C',query:'cluster:Seed|C'};
+const calls=[];let radioExcluded;
+const api={getMixTracks:async(q,l,f,id)=>{calls.push({q,id});return [t('old'),t(id+'1'),t(id+'2'),{...t('short'),duration:13}];},getSimilarTracks:async(id,a,title,l,excluded)=>{radioExcluded=excluded;return [t('old'),t('radio')];}};
+const {planContinuation}=load('src/services/autoplay.ts',{'../api/client':{api,apiClient:{get:async()=>({data:{daily_mixes:[A,B,C],best_mixes:[]}})}}});
+function create(factory){let state;const get=()=>state,set=p=>{state={...state,...(typeof p==='function'?p(state):p)};};state=factory(set,get);const hook=f=>f(state);hook.getState=get;hook.setState=set;return hook;}
+let resolve;
+const storeModule=load('src/store/playerStore.ts',{'zustand':{create},'../hooks/listeningFeedback':{finishListening(){},interruptListening(){}},'../services/autoplay':{planContinuation:()=>new Promise(r=>resolve=r)},'../api/client':{api},'./recommendationPreferences':{isHiddenTrack:()=>false,isAutomaticMix:()=>false}});
+const {usePlayerStore:store,ensureAutoplay}=storeModule;
+(async()=>{
+ let rows=await planContinuation(t('old'),[t('old')],{...A,nextMix:B});
+ assert.equal(rows.length,2);assert.equal(rows[0].id,'b1');assert.equal(rows[0].playback_context.id,'b');assert.equal(calls[0].q,B.query);
+ rows=await planContinuation(rows[1],[t('old'),...rows],rows[0].playback_context);
+ assert.equal(rows[0].id,'c1');assert.equal(rows[0].playback_context.id,'c');
+ rows=await planContinuation(t('c2'),[t('old'),t('b1'),t('b2'),...rows],rows[0].playback_context);
+ assert.equal(rows[0].id,'radio');assert(rows[0].playback_context.id.startsWith('autoplay-radio-'));assert(radioExcluded.includes('old'));
+ const before=calls.length;await planContinuation(t('radio'),[t('old')],rows[0].playback_context);assert.equal(calls.length,before,'Radio must not cycle through home again');
+ store.getState().setQueue([t('a1')],0,A);
+ const pending=ensureAutoplay();assert.equal(ensureAutoplay(),pending,'Share prefetch with exhausted recovery');
+ store.getState().nextTrack();assert.equal(store.getState().currentTrack.id,'a1','Do not replay old first song');assert.equal(store.getState().autoplayPending,true);
+ resolve([{...t('b1'),playback_context:B}]);await pending;
+ assert.equal(store.getState().currentTrack.id,'b1');assert.equal(store.getState().activeMix.id,'b');assert.equal(store.getState().isPlaying,true);
+ store.getState().setQueue([t('a1')],0,A);const paused=ensureAutoplay();store.getState().nextTrack();store.getState().pause();resolve([{...t('b1'),playback_context:B}]);await paused;
+ assert.equal(store.getState().currentTrack.id,'a1');assert.equal(store.getState().activeMix.id,'a');assert.equal(store.getState().isPlaying,false,'Late continuation must respect pause');
+ store.getState().nextTrack();assert.equal(store.getState().activeMix.id,'b','Apply context at actual boundary');store.getState().updateProgress(0,180);store.getState().prevTrack();assert.equal(store.getState().activeMix.id,'a','Previous track restores origin');
+ store.getState().setQueue([t('a1')],0,A);const stale=ensureAutoplay();store.getState().setQueue([t('manual')],0,null);resolve([t('stale')]);await stale;assert.equal(store.getState().queue.length,1);assert.equal(store.getState().currentTrack.id,'manual');
+ store.getState().setQueue([t('s1'),t('s2'),t('s3')],0,A);store.setState({isShuffle:true});store.getState().nextTrack();const second=store.getState().currentTrack.id;store.getState().nextTrack();assert.notEqual(store.getState().currentTrack.id,second);assert.notEqual(store.getState().currentTrack.id,'s1');
+ store.getState().setQueue([t('manual')],0,null);store.setState({isShuffle:false});
+ store.setState({repeatMode:'all'});store.getState().nextTrack();assert.equal(store.getState().currentTrack.id,'manual');assert.equal(store.getState().isPlaying,true);
+ store.setState({repeatMode:'one'});store.getState().nextTrack();assert.equal(store.getState().seekTarget,0);
+ store.setState({repeatMode:'off'});const empty=ensureAutoplay();store.getState().nextTrack();resolve([]);await empty;assert.equal(store.getState().isPlaying,false);assert(store.getState().playbackError);
+ console.log('Autoplay passed: actual A → B → C → radio, exclusions, boundary context, no implicit repeat, shared prefetch, pause, stale queue guard, repeat modes and unavailable recovery.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

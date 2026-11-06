@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),ts=require('typescript');
+const context={exports:{},Set,JSON,Error};vm.createContext(context);
+vm.runInContext(ts.transpileModule(fs.readFileSync('src/components/onboarding/artistImport.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,context);
+const parse=s=>Array.from(context.exports.parseArtistNames(s));
+assert.deepEqual(parse('Тёмный принц\nтемный принц\nmadk1d'),['Тёмный принц','madk1d']);
+assert.deepEqual(parse('{"artists":{"items":[{"name":"9mice"},{"name":"SALUKI"}]}}'),['9mice','SALUKI']);
+assert.deepEqual(parse('Artist Name,Track Name\n"9mice","One"\n"SALUKI","Two"'),['9mice','SALUKI']);
+assert.deepEqual(parse('Track Name,Other,Artist Name\nSong,,"Artist, With Comma"'),['Artist, With Comma']);
+assert.deepEqual(parse('["9mice",{"name":"SALUKI"}]'),['9mice','SALUKI']);
+assert.throws(()=>parse('{"user":{"name":"Not an artist"}}'));
+assert.throws(()=>parse('https://example.com/token-secret'));
+assert.throws(()=>parse(Array.from({length:51},(_,i)=>'Artist'+i).join('\n')));
+assert.throws(()=>parse('a'.repeat(200001)));
+console.log('Artist import checks passed: plain names, aliases, Spotify-shaped JSON, CSV, schema/secret/size bounds.');

@@ -1,0 +1,271 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+:root {
+  --sidebar-w: 360px;
+  --accent-color: #1DB954;
+  --accent-glow: rgba(29, 185, 84, 0.35);
+  --glass-bg: rgba(18, 18, 18, 0.82);
+  --glass-blur: 18px;
+  --card-bg: rgba(24, 24, 24, 0.75);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --sidebar-w: min(340px, 86vw);
+  }
+}
+
+/* Custom Spotify-like smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom visible slider for settings & controls */
+.spoty-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.2s ease;
+}
+
+.spoty-slider:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.spoty-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-color, #1DB954);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px var(--accent-glow, rgba(29, 185, 84, 0.6)), 0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  opacity: 1 !important;
+  margin-top: 0px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spoty-slider::-webkit-slider-thumb:hover,
+.spoty-slider::-webkit-slider-thumb:active {
+  transform: scale(1.18);
+  box-shadow: 0 0 16px var(--accent-glow, rgba(29, 185, 84, 0.9)), 0 3px 8px rgba(0, 0, 0, 0.6);
+}
+
+.spoty-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--accent-color, #1DB954);
+  box-shadow: 0 0 10px var(--accent-glow, rgba(29, 185, 84, 0.6));
+  cursor: pointer;
+  opacity: 1 !important;
+}
+
+.spoty-slider::-moz-range-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+
+/* Telegram Mini App Safe Areas */
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 16px), 16px);
+}
+
+.safe-top {
+  padding-top: max(
+    env(safe-area-inset-top, 0px),
+    var(--tg-safe-area-inset-top, 0px),
+    var(--tg-content-safe-area-inset-top, 0px)
+  );
+}
+
+/* Mobile Live Background Cinematic Pan (Subtle drift without blurry zoom) */
+@keyframes bg-pan-drift {
+  0% {
+    transform: scale(1.03) translate3d(-2.5%, 0, 0);
+  }
+  50% {
+    transform: scale(1.03) translate3d(2.5%, 0, 0);
+  }
+  100% {
+    transform: scale(1.03) translate3d(-2.5%, 0, 0);
+  }
+}
+
+.animate-bg-pan {
+  animation: bg-pan-drift 32s ease-in-out infinite alternate;
+}
+
+/* Subtle Vignette Overlay */
+.bg-vignette {
+  background: radial-gradient(
+    circle at center,
+    transparent 28%,
+    rgba(0, 0, 0, 0.42) 72%,
+    rgba(0, 0, 0, 0.82) 100%
+  );
+}
+
+/* Waveform/soundbar animation for MiniPlayer */
+@keyframes soundbar {
+  0%, 100% { transform: scaleY(0.25); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 16s linear infinite;
+}
+
+.animation-running {
+  animation-play-state: running;
+}
+
+.animation-paused {
+  animation-play-state: paused;
+}
+
+/* Glassmorphism utility */
+.glass-surface {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* Vinyl record styling */
+.vinyl-disc {
+  background: radial-gradient(
+    circle at center,
+    #0d0d0d 0%,
+    #111111 28%,
+    #1c1c1c 29%,
+    #0d0d0d 30%,
+    #222222 45%,
+    #0f0f0f 46%,
+    #242424 60%,
+    #111111 61%,
+    #2b2b2b 75%,
+    #141414 76%,
+    #333333 92%,
+    #080808 93%,
+    #000000 100%
+  );
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Realistic vinyl specular shine reflection */
+.vinyl-shine {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 255, 255, 0.12) 0deg,
+    transparent 60deg,
+    rgba(255, 255, 255, 0.14) 180deg,
+    transparent 240deg,
+    rgba(255, 255, 255, 0.12) 360deg
+  );
+}
+
+/* Cover filters */
+.filter-cover-blur {
+  filter: blur(8px);
+}
+.filter-cover-grayscale {
+  filter: grayscale(1);
+}
+.filter-cover-sepia {
+  filter: sepia(0.8);
+}
+.filter-cover-contrast {
+  filter: contrast(1.35) saturate(1.2);
+}
+.filter-cover-invert {
+  filter: invert(0.9);
+}
+
+/* Animated crawling caterpillar worm body */
+@keyframes worm-crawl {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 22px 0;
+  }
+}
+
+.worm-body-anim {
+  background-size: 22px 22px !important;
+  animation: worm-crawl 0.8s linear infinite;
+}
+
+@keyframes worm-wiggle {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-1px) rotate(3deg);
+  }
+}
+
+.worm-head-wiggle {
+  animation: worm-wiggle 1.2s ease-in-out infinite;
+}
+
+/* Shared desktop panels keep content readable over custom backgrounds. */
+.desktop-library { display:none; }
+.library-shortcut { display:flex; align-items:center; gap:12px; width:100%; padding:8px; border-radius:10px; }
+.library-shortcut:hover { background:rgba(255,255,255,.07); }
+.spoty-page-surface { border:1px solid rgba(255,255,255,.06); min-height:calc(100dvh - 80px); }
+@media(min-width:1280px) {
+  .desktop-library { display:block; position:sticky; top:82px; align-self:flex-start; width:248px; flex-shrink:0; margin:12px 8px; padding:16px 10px; height:calc(100dvh - 180px); overflow:auto; border:1px solid rgba(255,255,255,.07); border-radius:14px; }
+  .spoty-main { padding-top:12px; }
+}

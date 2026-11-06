@@ -1,0 +1,44 @@
+/* Loaded only by packaged clients. The website/Mini App keep their existing styles. */
+.native-client{color-scheme:dark}
+.native-client body{margin:0;overflow-x:hidden}
+.native-client #root{isolation:isolate;min-width:0}
+.native-client #root>div{overflow-x:clip;overflow-y:visible}
+.native-client .spoty-main{min-width:0;overflow:clip}
+.native-client .spoty-page-surface{min-width:0;max-width:100%}
+.native-client header{isolation:isolate;position:sticky;top:0}
+.native-client header>div{min-width:0}
+.native-client .spoty-now-playing{top:var(--client-header-height,64px)}
+.native-client .desktop-library{top:calc(var(--client-header-height,64px) + 12px);height:calc(100dvh - var(--client-header-height,64px) - 120px)}
+.native-client .spoty-settings-backdrop{align-items:center;justify-content:center;padding:clamp(8px,2vw,24px);background:rgba(4,7,12,.78);backdrop-filter:blur(12px)}
+.native-client .spoty-settings-panel{width:min(840px,100%);max-width:100%;height:min(900px,calc(100dvh - 48px));max-height:calc(100dvh - 48px);min-height:0;border:1px solid #ffffff18;border-radius:24px;background:#14171c!important;box-shadow:0 24px 100px #000a;overflow:hidden}
+.native-client .spoty-settings-header{padding:20px 24px;background:linear-gradient(120deg,#20272a,#15181e);gap:12px}
+.native-client .spoty-settings-header h2{font-size:19px;letter-spacing:-.025em}
+.native-client .spoty-settings-header>button{width:40px;height:40px;display:grid;place-items:center;flex-shrink:0;background:#ffffff08;border:1px solid #ffffff10}
+.native-client .spoty-settings-tabs{padding:10px 20px;gap:6px;background:#0e1117;scrollbar-width:thin}
+.native-client .spoty-settings-tabs>button{min-height:44px;padding:10px 16px;border-radius:12px;flex-shrink:0;font-size:12px}
+.native-client .spoty-settings-tabs>button[aria-pressed=true]{background:#1db95418;border-color:#1db95450}
+.native-client .spoty-settings-content{min-height:0;padding:24px;scrollbar-width:thin;scrollbar-color:#ffffff28 transparent;overflow-x:hidden;scroll-padding:20px}
+.native-client .spoty-settings-content>.space-y-6>div{padding:18px;border:1px solid #ffffff0d;border-radius:18px;background:#ffffff03;min-width:0}
+.native-client .spoty-settings-content input:not([type=range]):not([type=checkbox]){min-height:42px;min-width:0}
+.native-client .spoty-settings-content button{max-width:100%}
+.native-client .spoty-settings-content img{max-width:100%}
+.native-client .spoty-settings-content .grid{min-width:0}
+.native-client[data-visual-mode=balanced] .glass-surface{backdrop-filter:blur(min(var(--glass-blur),8px));-webkit-backdrop-filter:blur(min(var(--glass-blur),8px))}
+.native-client[data-visual-mode=economy] .glass-surface{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background-color:rgba(18,20,24,.94)}
+.native-client[data-visual-mode=economy] .spoty-live-background img{filter:none!important}
+.native-client[data-host-hidden=true] *{animation-play-state:paused!important;transition:none!important}
+@media(max-width:640px){
+ .native-client .spoty-settings-panel{height:calc(100dvh - 16px);max-height:calc(100dvh - 16px);border-radius:20px}
+ .native-client .spoty-settings-header{padding:12px 16px}
+ .native-client .spoty-settings-header h2{font-size:17px}
+ .native-client .spoty-settings-tabs{padding:8px 12px}
+ .native-client .spoty-settings-content{padding:16px}
+ .native-client .spoty-settings-content>.space-y-6>div{padding:14px}
+}
+@media(min-width:768px){
+ .native-client header .absolute.left-1\/2{position:static!important;transform:none!important;flex:0 1 auto;justify-content:center;min-width:0;margin-inline:auto}
+}
+@media(min-width:768px) and (max-width:1100px){
+ .native-client header .absolute.left-1\/2 button{padding-left:8px;padding-right:8px}
+ .native-client header .absolute.left-1\/2 button span{display:none}
+}
