@@ -4,13 +4,13 @@
 
 ## Скачать
 
-**[Windows x64](https://github.com/kabachok-hub/spoty-android/releases/download/v0.2.3/Spoty-Windows-0.2.3-x64.zip)** · **[Android APK](https://github.com/kabachok-hub/spoty-android/releases/download/v0.2.3/Spoty-Android-0.2.3.apk)**
+**[Windows x64](https://github.com/kabachok-hub/spoty-android/releases/download/v0.2.3/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-android/releases/download/v0.2.3/Spoty-Android-0.2.3.apk)**
 
 Все версии — в [Releases](https://github.com/kabachok-hub/spoty-android/releases).
 
 ## Установка
 
-**Windows 10/11:** распакуйте архив целиком и запустите `Spoty.exe`. Перед обновлением завершите приложение через меню трея.
+**Windows 10/11:** скачайте и запустите `Spoty-Setup.exe`, затем следуйте шагам установки. Ярлык Spoty появится на рабочем столе и в меню «Пуск». Перед обновлением завершите приложение через меню трея.
 
 **Android 6+:** скачайте и установите APK. При обновлении установите его поверх предыдущей версии.
 
@@ -34,9 +34,10 @@ node scripts/build-windows.mjs
 npm --prefix windows ci
 npm --prefix windows test
 npm --prefix windows run package
+npm --prefix windows run installer
 ```
 
-Результат: `windows/releases/0.2.3/Spoty-win32-x64/`.
+Установщик: `windows/installers/0.2.3/Spoty-Setup.exe`. Портативная сборка: `windows/releases/0.2.3/Spoty-win32-x64/`.
 
 **Android:** задайте `JAVA_HOME` и `ANDROID_HOME`, затем выполните:
 

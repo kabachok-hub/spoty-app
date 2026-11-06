@@ -29,3 +29,7 @@ windows/renderer/
 windows/server-config.json
 releases/
 *.zip
+
+windows/installers/
+*.exe
+*.blockmap
