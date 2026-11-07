@@ -14,15 +14,6 @@
 - **Музыка под настроение** — рекомендации, миксы и тексты песен.
 - **Оформление под себя** — темы, фоны и настройки нагрузки на систему.
 
-## Интерфейс
-
-<p>
-  <img src="docs/images/desktop.png" alt="Spoty desktop interface" width="740">
-</p>
-<p>
-  <img src="docs/images/mobile.png" alt="Spoty mobile interface" width="250">
-</p>
-
 ## Установка
 
 **Windows 10/11 x64:** запусти `Spoty-Setup.exe` и пройди установку. Перед обновлением заверши приложение через меню трея.

@@ -14,15 +14,6 @@ A music app with a shared account and library across devices. Search tracks, bui
 - **Music to match your mood** — recommendations, mixes and lyrics.
 - **Make it yours** — themes, backgrounds and visual performance settings.
 
-## Interface
-
-<p>
-  <img src="docs/images/desktop.png" alt="Spoty desktop interface" width="740">
-</p>
-<p>
-  <img src="docs/images/mobile.png" alt="Spoty mobile interface" width="250">
-</p>
-
 ## Install
 
 **Windows 10/11 x64:** run `Spoty-Setup.exe` and follow the installer. Before updating, quit Spoty from the system tray.
