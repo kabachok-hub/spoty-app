@@ -1,49 +1,38 @@
 # Spoty
 
-Музыкальное приложение для Windows и Android. Поиск треков, плейлисты, рекомендации, тексты песен и фоновое воспроизведение. Общий аккаунт и библиотека на всех устройствах, вход через Telegram.
+**Your music, on Windows and Android.**
 
-## Скачать
+[Русский](README.ru.md)
 
-**[Windows x64](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.3/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.3/Spoty-Android-0.2.3.apk)**
+A music app with a shared account and library across devices. Search tracks, build playlists, discover personalized mixes and keep listening in the background. Sign in through Telegram.
 
-Все версии — в [Releases](https://github.com/kabachok-hub/spoty-app/releases).
+**[Windows installer](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.3/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.3/Spoty-Android-0.2.3.apk)**
 
-## Установка
+## Why Spoty?
 
-**Windows 10/11:** скачайте и запустите `Spoty-Setup.exe`, затем следуйте шагам установки. Ярлык Spoty появится на рабочем столе и в меню «Пуск». Перед обновлением завершите приложение через меню трея.
+- **One library across devices** — favorites and playlists tied to your account.
+- **Music to match your mood** — recommendations, mixes and lyrics.
+- **Make it yours** — themes, backgrounds and visual performance settings.
 
-**Android 6+:** скачайте и установите APK. При обновлении установите его поверх предыдущей версии.
+## Interface
 
-После запуска войдите через Telegram. Обновления пока устанавливаются вручную.
+<p>
+  <img src="docs/images/desktop.png" alt="Spoty desktop interface" width="740">
+</p>
+<p>
+  <img src="docs/images/mobile.png" alt="Spoty mobile interface" width="250">
+</p>
 
-## Разработка
+## Install
 
-Общий интерфейс — React и TypeScript. Android — Kotlin и Media3, Windows — Electron.
+**Windows 10/11 x64:** run `Spoty-Setup.exe` and follow the installer. Before updating, quit Spoty from the system tray.
 
-Для сборки нужны Node.js 22.12+, а для Android — JDK 17 и Android SDK 36. Укажите адрес совместимого API Spoty в переменной `SPOTY_API_ORIGIN` (HTTPS, без завершающего слеша). Пример настройки — в `.env.example`.
+**Android 6+:** install the APK, then sign in through Telegram. Install updates over the existing app.
 
-```powershell
-$env:SPOTY_API_ORIGIN = 'https://your-server.example'
-npm --prefix frontend ci
-```
+Updates are installed manually. All downloads: [Releases](https://github.com/kabachok-hub/spoty-app/releases).
 
-**Windows:**
+## Development & feedback
 
-```powershell
-node scripts/build-windows.mjs
-npm --prefix windows ci
-npm --prefix windows test
-npm --prefix windows run package
-npm --prefix windows run installer
-```
+React + TypeScript, Kotlin + Media3 on Android, Electron on Windows. [Build instructions](docs/BUILD.md).
 
-Установщик: `windows/installers/0.2.3/Spoty-Setup.exe`. Портативная сборка: `windows/releases/0.2.3/Spoty-win32-x64/`.
-
-**Android:** задайте `JAVA_HOME` и `ANDROID_HOME`, затем выполните:
-
-```powershell
-node scripts/build-android.mjs
-powershell -ExecutionPolicy Bypass -File android/tools/build-windows.ps1
-```
-
-Результат: `android/app/build/outputs/apk/debug/app-debug.apk`.
+Found a bug or have an idea? [Open an issue](https://github.com/kabachok-hub/spoty-app/issues). For bugs, include the app version, your operating system and steps to reproduce. Please keep account details and tokens private.
