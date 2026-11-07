@@ -1,3 +1,5 @@
+import { GeneralSettings } from './GeneralSettings';
+import { isNativeClient } from '../../platform/nativeBridge';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -61,7 +63,7 @@ import { EqualizerModal } from './EqualizerModal';
 import { PerformanceSettings } from './PerformanceSettings';
 import { extractYouTubeId } from '../layout/LiveBackground';
 
-type SettingsTab = 'appearance' | 'background' | 'player' | 'tabs' | 'audio';
+type SettingsTab = 'general' | 'appearance' | 'background' | 'player' | 'tabs' | 'audio';
 
 const CustomSlider: React.FC<{
   label: string;
@@ -199,7 +201,7 @@ export const SettingsModal: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(isNativeClient() ? 'general' : 'appearance');
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
   const openStats = useNavigationStore((state) => state.openStats);
   const crossfadeSeconds = useSettingsStore((state) => state.crossfadeSeconds);
@@ -447,6 +449,23 @@ export const SettingsModal: React.FC = () => {
     }
   }, [isOpen, setupBackButton, setOpen, haptic]);
 
+  useEffect(() => {
+    if (!isOpen || !isNativeClient()) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = document.querySelector<HTMLElement>('.spoty-settings-panel');
+    const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled),select,input,a[href]') || []).filter(e => e.getClientRects().length > 0);
+    controls()[0]?.focus();
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { if (isEqModalOpen) setIsEqModalOpen(false); else setOpen(false); event.stopPropagation(); }
+      if (event.key !== 'Tab' || isEqModalOpen) return;
+      const list = controls(), first = list[0], last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', keyboard);
+    return () => { document.removeEventListener('keydown', keyboard); previous?.focus(); };
+  }, [isOpen, isEqModalOpen, setOpen]);
+
   if (!isOpen) return null;
 
   const handleLangSelect = (lang: Language) => {
@@ -466,11 +485,12 @@ export const SettingsModal: React.FC = () => {
   };
 
   const tabsConfig = [
-    { id: 'appearance' as SettingsTab, label: 'Вид', icon: Palette },
-    { id: 'background' as SettingsTab, label: 'Фон и Стекло', icon: Layers },
-    { id: 'player' as SettingsTab, label: 'Плеер', icon: Disc },
-    { id: 'tabs' as SettingsTab, label: 'Вкладки', icon: Layout },
-    { id: 'audio' as SettingsTab, label: 'Звук', icon: Sliders },
+    { id: 'general' as SettingsTab, label: 'Основные', icon: Sliders, description: 'Аккаунт, язык и обновления' },
+    { id: 'appearance' as SettingsTab, label: 'Внешний вид', description: 'Темы, эффекты и нагрузка на систему', icon: Palette },
+    { id: 'background' as SettingsTab, label: 'Фон и прозрачность', description: 'Обои, видео и стеклянные поверхности', icon: Layers },
+    { id: 'player' as SettingsTab, label: 'Плеер', description: 'Обложки и элементы управления', icon: Disc },
+    { id: 'tabs' as SettingsTab, label: 'Навигация', description: 'Расположение и стиль вкладок', icon: Layout },
+    { id: 'audio' as SettingsTab, label: 'Звук', description: 'Эквалайзер и переходы между треками', icon: Sliders },
   ];
 
   return (
@@ -483,14 +503,15 @@ export const SettingsModal: React.FC = () => {
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-labelledby="spoty-settings-title"
         className="spoty-settings-panel w-full sm:w-[500px] md:w-[540px] max-w-[92vw] h-full h-[100dvh] glass-surface border-r border-white/15 sm:rounded-r-3xl shadow-2xl shadow-black/90 text-white animate-slide-in-left flex flex-col overflow-hidden select-none safe-top safe-bottom"
       >
         {/* Sticky Header with Title and Close Button */}
         <div className="spoty-settings-header flex items-center justify-between px-5 py-3.5 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles size={18} style={{ color: 'var(--accent-color, #1DB954)' }} />
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-              Оформление и Настройки
+            <h2 id="spoty-settings-title" className="text-base sm:text-lg font-bold text-white tracking-tight">
+              Настройки
             </h2>
           </div>
           <button
@@ -505,10 +526,13 @@ export const SettingsModal: React.FC = () => {
           </button>
         </div>
 
-        {/* ── Sub-tabs Bar (Dootify-style category switcher) ── */}
-        {mobileMiniAppPlatform() && <button onClick={openBackgroundPlaybackHelp} className="min-h-11 px-5 py-2 text-left text-sm text-emerald-400 border-b border-white/10 flex-shrink-0">Музыка с выключенным экраном — инструкция</button>}
-        {user && user.telegram_id !== 999999999 && <button onClick={() => { setOpen(false); openTasteSetup(); }} className="mx-4 my-2 min-h-16 p-3 flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-left text-zinc-100 flex-shrink-0"><Sparkles size={22} className="text-emerald-400 shrink-0"/><span className="flex-1"><span className="block text-sm font-semibold">Музыкальные предпочтения</span><span className="block mt-1 text-xs text-zinc-400">Выбрать артистов и открыть похожих</span></span><ChevronRight size={20}/></button>}
-        <div className="spoty-settings-tabs flex items-center gap-1 px-4 py-2 bg-black/30 border-b border-white/10 overflow-x-auto no-scrollbar flex-shrink-0">
+        <div className="spoty-settings-layout flex flex-col min-h-0 flex-1">
+        <label className="spoty-settings-mobile-nav">Раздел
+          <select value={activeTab} onChange={e => setActiveTab(e.target.value as SettingsTab)} aria-label="Раздел настроек">
+            {tabsConfig.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <div aria-label="Разделы настроек" className="spoty-settings-tabs flex items-center gap-1 px-4 py-2 bg-black/30 border-b border-white/10 overflow-x-auto no-scrollbar flex-shrink-0">
           {tabsConfig.map((tItem) => {
             const Icon = tItem.icon;
             const isActive = activeTab === tItem.id;
@@ -519,6 +543,7 @@ export const SettingsModal: React.FC = () => {
                 onClick={() => {
                   haptic.selection();
                   setActiveTab(tItem.id);
+                  document.querySelector('.spoty-settings-content')?.scrollTo(0, 0);
                 }}
                 className={`min-h-11 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${
                   isActive
@@ -538,6 +563,10 @@ export const SettingsModal: React.FC = () => {
 
         {/* Scrollable Content Container */}
         <div className="spoty-settings-content flex-1 overflow-y-auto overscroll-contain p-5 space-y-6 no-scrollbar touch-pan-y">
+          <div className="spoty-settings-section-heading"><h3>{tabsConfig.find(item => item.id === activeTab)?.label}</h3><p>{tabsConfig.find(item => item.id === activeTab)?.description}</p></div>
+          {activeTab === 'general' && <GeneralSettings />}
+          {activeTab === 'general' && mobileMiniAppPlatform() && <button onClick={openBackgroundPlaybackHelp} className="min-h-11 text-sm text-emerald-400">Музыка с выключенным экраном — инструкция</button>}
+
           {activeTab === 'appearance' && <><PerformanceSettings /><AppearancePresets /></>}
 
           {/* ══════════════════════════════════════════════════════════════════
@@ -2249,6 +2278,7 @@ export const SettingsModal: React.FC = () => {
               </div>}
             </div>
           )}
+        </div>
         </div>
       </div>
 

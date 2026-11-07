@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+import { isNativeClient } from '../../platform/nativeBridge';
 import { refreshRecording } from '../../hooks/refreshRecording';
 import React, { useState } from 'react';
 import {
@@ -140,7 +142,7 @@ export const NowPlayingSidebar: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  return (
+  const panel = (
     <aside
       className={`spoty-now-playing hidden md:flex fixed top-14 right-0 bottom-[84px] z-30 flex-col
         w-80 lg:w-[340px]
@@ -587,4 +589,5 @@ export const NowPlayingSidebar: React.FC = () => {
       )}
     </aside>
   );
+  return isNativeClient() ? createPortal(panel, document.getElementById('root') || document.body) : panel;
 };

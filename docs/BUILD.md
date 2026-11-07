@@ -20,7 +20,7 @@ npm --prefix windows run package
 npm --prefix windows run installer
 ```
 
-Установщик: `windows/installers/0.2.3/Spoty-Setup.exe`. Портативная сборка: `windows/releases/0.2.3/Spoty-win32-x64/`.
+Установщик: `windows/installers/0.2.4/Spoty-Setup.exe`. Портативная сборка: `windows/releases/0.2.4/Spoty-win32-x64/`.
 
 **Android:** задайте `JAVA_HOME` и `ANDROID_HOME`, затем выполните:
 

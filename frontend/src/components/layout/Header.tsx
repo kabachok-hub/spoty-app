@@ -1,3 +1,4 @@
+import { AppUpdateButton } from './AppUpdateButton';
 import React, { useState } from 'react';
 import { ChevronLeft, User as UserIcon, Bell, Settings, Shield, Home, Search, Library, BarChart3, PanelRightOpen, PanelRightClose, TrendingUp, ExternalLink } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
@@ -56,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (<>
-    <header className="sticky top-0 z-30 px-3 sm:px-6 md:px-8 py-2 sm:py-2.5 glass-surface safe-top border-b border-white/5 select-none relative backdrop-blur-xl">
+    <header className="spoty-header sticky top-0 z-30 px-3 sm:px-6 md:px-8 py-2 sm:py-2.5 glass-surface safe-top border-b border-white/5 select-none relative backdrop-blur-xl">
       <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4 relative min-h-[38px] sm:min-h-[42px]">
         {/* Left: Brand & Back button & Title */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 z-10 flex-1 sm:flex-initial sm:max-w-[calc(50%-220px)] lg:max-w-[calc(50%-240px)]">
@@ -212,6 +213,8 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-[#1DB954] rounded-full ring-2 ring-[#121212]" />
             )}
           </button>
+
+          <AppUpdateButton />
 
           {/* Settings Gear */}
           <button

@@ -7,6 +7,9 @@
 .native-client .spoty-page-surface{min-width:0;max-width:100%}
 .native-client header{isolation:isolate;position:sticky;top:0}
 .native-client header>div{min-width:0}
+.native-client .spoty-header{z-index:40}
+.native-client .spoty-update-button{position:relative;display:flex;align-items:center;gap:6px;min-width:36px;min-height:36px;padding:8px 10px;border:1px solid #1db95455;border-radius:12px;color:#66e59a;background:#1db95415;font-size:12px;font-weight:600;flex-shrink:0}
+.native-client .spoty-update-button i{position:absolute;right:3px;top:3px;width:5px;height:5px;background:#66e59a;border-radius:50%}
 .native-client .spoty-now-playing{top:var(--client-header-height,64px)}
 .native-client .desktop-library{top:calc(var(--client-header-height,64px) + 12px);height:calc(100dvh - var(--client-header-height,64px) - 120px)}
 .native-client .spoty-settings-backdrop{align-items:center;justify-content:center;padding:clamp(8px,2vw,24px);background:rgba(4,7,12,.78);backdrop-filter:blur(12px)}
@@ -23,6 +26,32 @@
 .native-client .spoty-settings-content button{max-width:100%}
 .native-client .spoty-settings-content img{max-width:100%}
 .native-client .spoty-settings-content .grid{min-width:0}
+.spoty-settings-mobile-nav{display:none}
+.spoty-settings-section-heading h3{font-size:22px;font-weight:650;letter-spacing:-.025em}
+.spoty-settings-section-heading p{font-size:13px;color:#92969f;margin-top:6px;line-height:1.6}
+.spoty-setting-section{border:1px solid #ffffff12;background:#ffffff03;border-radius:14px;padding:20px}
+.spoty-setting-section h3{font-size:14px;font-weight:600;margin-bottom:10px}
+.spoty-setting-section p{font-size:13px;color:#a1a4ae;line-height:1.6}
+.spoty-setting-row{display:flex;align-items:center;gap:12px;justify-content:space-between;width:100%;min-height:56px;padding:12px 0;text-align:left;border-bottom:1px solid #ffffff0a;font-size:13px}
+.spoty-setting-row>span:first-of-type{flex:1;min-width:0}
+.spoty-setting-row small{display:block;color:#92969f;font-size:12px;line-height:1.5;margin-top:4px}
+.spoty-setting-action,.spoty-setting-row select{display:inline-flex;align-items:center;gap:8px;border:1px solid #ffffff1c;background:#ffffff08;border-radius:8px;padding:9px 12px;font-size:12px;min-height:38px;color:#eee}
+.spoty-setting-action:hover{background:#ffffff14}.spoty-setting-action:disabled{opacity:.5}
+.native-client .spoty-settings-panel{width:min(1080px,100%);height:min(820px,calc(100dvh - 48px));border-radius:18px;background:#17191d!important}
+.native-client .spoty-settings-header{padding:18px 24px;background:#17191d}
+.native-client .spoty-settings-header h2{font-size:17px}
+.native-client .spoty-settings-layout{display:grid;grid-template-columns:216px minmax(0,1fr);overflow:hidden}
+.native-client .spoty-settings-tabs{display:flex;flex-direction:column;align-items:stretch;padding:20px 12px;gap:5px;background:#121417;border-right:1px solid #ffffff0c;border-bottom:0;overflow-y:auto}
+.native-client .spoty-settings-tabs>button{justify-content:flex-start;min-height:44px;white-space:normal;text-align:left;padding:10px 12px;font-size:13px;border:1px solid transparent;border-radius:8px;font-weight:500}
+.native-client .spoty-settings-tabs>button[aria-pressed=true]{color:#fff!important;background:#ffffff0c;border-color:#ffffff0c}
+.native-client .spoty-settings-tabs>button svg{width:17px;height:17px;flex-shrink:0;color:#a5a9b1}
+.native-client .spoty-settings-content{padding:28px 32px;background:#191b20}
+.native-client .spoty-settings-content>.space-y-6>div{padding:20px;background:#ffffff02;border-radius:12px}
+.native-client .spoty-now-playing{z-index:25;max-height:calc(100dvh - var(--client-header-height,72px) - 84px)}
+.native-desktop .spoty-header{padding:10px 20px;background:#141619ed!important;border-bottom:1px solid #ffffff0e;backdrop-filter:none!important}
+.native-desktop .spoty-header>div{max-width:none;display:grid;grid-template-columns:minmax(130px,1fr) auto minmax(0,1fr);gap:16px;min-height:44px}
+.native-desktop .spoty-header>div>div:first-child{max-width:none;min-width:0}
+.native-desktop .spoty-header>div>div:last-child{justify-self:end;gap:6px}
 .native-client[data-visual-mode=balanced] .glass-surface{backdrop-filter:blur(min(var(--glass-blur),8px));-webkit-backdrop-filter:blur(min(var(--glass-blur),8px))}
 .native-client[data-visual-mode=economy] .glass-surface{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background-color:rgba(18,20,24,.94)}
 .native-client[data-visual-mode=economy] .spoty-live-background img{filter:none!important}
@@ -34,6 +63,20 @@
  .native-client .spoty-settings-tabs{padding:8px 12px}
  .native-client .spoty-settings-content{padding:16px}
  .native-client .spoty-settings-content>.space-y-6>div{padding:14px}
+}
+@media(max-width:767px){
+ .native-client .spoty-settings-layout{display:flex;flex-direction:column}
+ .native-client .spoty-settings-tabs{display:none}
+ .native-client .spoty-settings-mobile-nav{display:flex;align-items:center;gap:12px;padding:12px 16px;font-size:12px;color:#a1a4ae;background:#121417;border-bottom:1px solid #ffffff0c}
+ .native-client .spoty-settings-mobile-nav select{flex:1;min-width:0;min-height:44px;padding:10px 12px;border-radius:8px;border:1px solid #ffffff18;background:#24272d;color:#fff;font-size:14px}
+ .native-client .spoty-settings-content{padding:20px 16px}
+ .native-client .spoty-settings-section-heading h3{font-size:20px}
+ .native-client .spoty-settings-panel{max-height:calc(100dvh - 16px);height:calc(100dvh - 16px)}
+}
+@media(min-width:768px) and (max-width:1240px){
+ .native-desktop .spoty-header>div{grid-template-columns:auto minmax(0,1fr) auto;gap:8px}
+ .native-desktop .spoty-header .absolute.left-1\/2 button span{display:none}
+ .native-desktop .spoty-header>div>div:last-child>button span{display:none}
 }
 @media(min-width:768px){
  .native-client header .absolute.left-1\/2{position:static!important;transform:none!important;flex:0 1 auto;justify-content:center;min-width:0;margin-inline:auto}

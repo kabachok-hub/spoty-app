@@ -1,3 +1,4 @@
+import { useBrowseWarmup } from '../platform/useBrowseWarmup';
 import { useSettingsStore } from '../store/settingsStore';
 import React, { useState, useEffect } from 'react';
 import { Search as SearchIcon, X } from 'lucide-react';
@@ -43,6 +44,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   const [artists, setArtists] = useState<Artist[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  useBrowseWarmup(tracks, 'search', !loading && !searchError && !!query.trim());
   const { haptic } = useTelegram();
   const t = useSettingsStore(state => state.t);
   const openAlbum = useNavigationStore((state) => state.openAlbum);

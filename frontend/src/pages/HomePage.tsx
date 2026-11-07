@@ -1,3 +1,4 @@
+import { useBrowseWarmup } from '../platform/useBrowseWarmup';
 import React, { useEffect, useState, useRef } from 'react';
 import { Play, Sparkles, Heart, Github, TrendingUp, RefreshCw } from 'lucide-react';
 import { Track, Artist, Album, Playlist, ChartsData } from '../api/types';
@@ -304,6 +305,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   };
 
   const quickPicks = (recentTracks.length > 0 ? recentTracks : chartTracks).slice(0, 6);
+  useBrowseWarmup(recentTracks.length > 0 ? recentTracks : chartTracks, 'home', filter !== 'mixes');
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-7 md:space-y-10 pb-36 md:pb-28 select-none animate-fade-in">
