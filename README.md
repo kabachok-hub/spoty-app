@@ -4,9 +4,9 @@
 
 ## Скачать
 
-**[Windows x64](https://github.com/kabachok-hub/spoty-android/releases/download/v0.2.3/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-android/releases/download/v0.2.3/Spoty-Android-0.2.3.apk)**
+**[Windows x64](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.3/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.3/Spoty-Android-0.2.3.apk)**
 
-Все версии — в [Releases](https://github.com/kabachok-hub/spoty-android/releases).
+Все версии — в [Releases](https://github.com/kabachok-hub/spoty-app/releases).
 
 ## Установка
 
