@@ -16,7 +16,7 @@
 
 ## Android
 
-<img src="docs/images/android.png" alt="Spoty Android" width="280">
+<img src="docs/images/spoty-android-cropped.png" alt="Spoty Android" width="280">
 
 ## Установка
 

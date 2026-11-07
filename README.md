@@ -16,7 +16,7 @@ A music app with a shared account and library across devices. Search tracks, bui
 
 ## Android
 
-<img src="docs/images/android.png" alt="Spoty Android" width="280">
+<img src="docs/images/spoty-android-cropped.png" alt="Spoty Android" width="280">
 
 ## Install
 
