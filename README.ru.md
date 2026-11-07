@@ -14,6 +14,10 @@
 - **Музыка под настроение** — рекомендации, миксы и тексты песен.
 - **Оформление под себя** — темы, фоны и настройки нагрузки на систему.
 
+## Windows
+
+<img src="docs/images/spoty-windows-current.png" alt="Spoty Windows" width="960">
+
 ## Android
 
 <img src="docs/images/spoty-android-cropped.png" alt="Spoty Android" width="280">

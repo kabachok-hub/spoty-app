@@ -14,6 +14,10 @@ A music app with a shared account and library across devices. Search tracks, bui
 - **Music to match your mood** — recommendations, mixes and lyrics.
 - **Make it yours** — themes, backgrounds and visual performance settings.
 
+## Windows
+
+<img src="docs/images/spoty-windows-current.png" alt="Spoty Windows" width="960">
+
 ## Android
 
 <img src="docs/images/spoty-android-cropped.png" alt="Spoty Android" width="280">
