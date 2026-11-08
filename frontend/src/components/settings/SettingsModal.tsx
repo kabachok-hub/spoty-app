@@ -1,5 +1,4 @@
 import { GeneralSettings } from './GeneralSettings';
-import { isNativeClient } from '../../platform/nativeBridge';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -201,7 +200,7 @@ export const SettingsModal: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>(isNativeClient() ? 'general' : 'appearance');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
   const openStats = useNavigationStore((state) => state.openStats);
   const crossfadeSeconds = useSettingsStore((state) => state.crossfadeSeconds);
@@ -450,7 +449,7 @@ export const SettingsModal: React.FC = () => {
   }, [isOpen, setupBackButton, setOpen, haptic]);
 
   useEffect(() => {
-    if (!isOpen || !isNativeClient()) return;
+    if (!isOpen) return;
     const previous = document.activeElement as HTMLElement | null;
     const dialog = document.querySelector<HTMLElement>('.spoty-settings-panel');
     const controls = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled),select,input,a[href]') || []).filter(e => e.getClientRects().length > 0);

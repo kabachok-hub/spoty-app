@@ -17,7 +17,7 @@ hostHidden=false;emit('w:spoty-host-visibility');tick(1);assert.equal(draws,befo
 doc.hidden=true;emit('d:visibilitychange');assert.equal(frames.size,0);stop();
 doc.hidden=false;api.setVisualMode('economy');assert.equal(api.visualBudget().freezeVideo,true);assert.equal(api.visualBudget().blur,0);assert.equal(saved.get('spoty_visual_performance_v1'),'economy');
 draws=0;const low=api.startDecorativeLoop(()=>draws++);tick(60);assert(draws>=14&&draws<=16);low();assert.equal(frames.size,0);
-native=false;assert.equal(api.getVisualMode(),'quality');assert.equal(api.visualBudget().freezeVideo,false);assert.equal(api.decorativeSize(3840,2160).width,3840);
-draws=0;const web=api.startDecorativeLoop(()=>draws++);tick(144,144);assert.equal(draws,144,'ordinary website keeps original display-rate animation');web();
+native=false;assert.equal(api.getVisualMode(),'economy');assert.equal(api.visualBudget().freezeVideo,true);assert.equal(api.decorativeSize(3840,2160).width,960);api.setVisualMode('quality');assert.equal(api.decorativeSize(3840,2160).width,3840);
+draws=0;const web=api.startDecorativeLoop(()=>draws++);tick(144,144);assert(draws>=59&&draws<=61,'website quality mode caps decorative drawing at60fps');web();
 assert([...events.values()].every(set=>set.size===0),'cleanup must remove all visual loop listeners');
-console.log('Visual performance passed: native FPS/resolution budgets, economy video policy, no RAF while hidden, immediate restore, persistence, cleanup and unchanged website refresh rate.');
+console.log('Visual performance passed: shared web/native FPS/resolution budgets, economy video policy, no RAF while hidden, immediate restore, persistence, cleanup and browser economy and quality modes.');

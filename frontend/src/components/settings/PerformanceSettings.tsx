@@ -1,9 +1,7 @@
-import { isNativeClient } from '../../platform/nativeBridge';
 import { setVisualMode, useVisualMode, VisualMode } from '../../platform/visualPerformance';
 
 export function PerformanceSettings() {
   const mode = useVisualMode();
-  if (!isNativeClient()) return null;
   const choices: { id: VisualMode; title: string; description: string }[] = [
     { id: 'economy', title: 'Экономный', description: 'Видео как изображение, лёгкие анимации, без размытия.' },
     { id: 'balanced', title: 'Сбалансированный', description: 'Живые фоны, умеренное размытие и ограниченная нагрузка.' },

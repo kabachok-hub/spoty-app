@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
-import { isNativeClient, isHostHidden } from './nativeBridge';
+import { isHostHidden } from './nativeBridge';
 
 export type VisualMode = 'economy' | 'balanced' | 'quality';
 const KEY = 'spoty_visual_performance_v1';
@@ -7,7 +7,7 @@ const modes = new Set<VisualMode>(['economy', 'balanced', 'quality']);
 const listeners = new Set<() => void>();
 let mode: VisualMode = 'balanced';
 try { const stored = localStorage.getItem(KEY) as VisualMode; if (modes.has(stored)) mode = stored; } catch { }
-export function getVisualMode(): VisualMode { return isNativeClient() ? mode : 'quality'; }
+export function getVisualMode(): VisualMode { return mode; }
 export function visualBudget() {
   switch (getVisualMode()) {
     case 'economy': return { fps: 15, width: 960, height: 540, blur: 0, stars: 70, particles: 12, freezeVideo: true };
@@ -29,7 +29,7 @@ const subscribe = (listener: () => void) => { listeners.add(listener); return ()
 export function useVisualMode() {
   const current = useSyncExternalStore(subscribe, getVisualMode, () => 'quality' as const);
   useEffect(() => {
-    if (isNativeClient()) document.documentElement.dataset.visualMode = current;
+    document.documentElement.dataset.visualMode = current;
   }, [current]);
   return current;
 }
@@ -46,7 +46,7 @@ export function startDecorativeLoop(draw: () => void) {
   const tick = (at: number) => {
     frame = null;
     if (stopped || decorativeHidden()) return;
-    const interval = isNativeClient() ? 1000 / visualBudget().fps : 0;
+    const interval = 1000 / visualBudget().fps;
     const elapsed = at - previous;
     if (!Number.isFinite(previous) || elapsed + .01 >= interval) {
       previous = interval && Number.isFinite(previous)

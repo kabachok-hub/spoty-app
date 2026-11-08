@@ -1,8 +1,6 @@
 import { useLayoutEffect } from 'react';
-import { isNativeClient } from './nativeBridge';
 export function NativeLayoutMetrics() {
   useLayoutEffect(() => {
-    if (!isNativeClient()) return;
     const header = document.querySelector('.spoty-header');
     if (!header) return;
     const update = () => document.documentElement.style.setProperty('--client-header-height', `${Math.ceil(header.getBoundingClientRect().height)}px`);

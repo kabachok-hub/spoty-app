@@ -1,5 +1,4 @@
 import { createPortal } from 'react-dom';
-import { isNativeClient } from '../../platform/nativeBridge';
 import { refreshRecording } from '../../hooks/refreshRecording';
 import React, { useState } from 'react';
 import {
@@ -589,5 +588,5 @@ export const NowPlayingSidebar: React.FC = () => {
       )}
     </aside>
   );
-  return isNativeClient() ? createPortal(panel, document.getElementById('root') || document.body) : panel;
+  return createPortal(panel, document.getElementById('root') || document.body);
 };
