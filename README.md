@@ -6,7 +6,7 @@
 
 A music app with a shared account and library across devices. Search tracks, build playlists, discover personalized mixes and keep listening in the background. Sign in through Telegram.
 
-**[Windows installer](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.4/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.4/Spoty-Android-0.2.4.apk)**
+**[Windows installer](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.5/Spoty-Setup.exe)** · **[Android APK](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.5/Spoty-Android-0.2.5.apk)**
 
 ## Why Spoty?
 

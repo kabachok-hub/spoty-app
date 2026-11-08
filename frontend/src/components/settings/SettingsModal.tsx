@@ -1880,18 +1880,6 @@ export const SettingsModal: React.FC = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {[
                     {
-                      id: 'kai_angel',
-                      label: 'Kai Angel',
-                      img: '/avatars/kai_angel_circle.png',
-                      desc: 'Фото с очками и нимбом',
-                    },
-                    {
-                      id: '9mice',
-                      label: '9mice',
-                      img: '/avatars/9mice_circle.png',
-                      desc: 'Тёмный вамп-стиль в очках',
-                    },
-                    {
                       id: 'worm',
                       label: 'Червячок',
                       icon: '🐛',
@@ -1941,13 +1929,7 @@ export const SettingsModal: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        {st.img ? (
-                          <div className="w-5 h-5 rounded-full overflow-hidden border border-white/30 flex-shrink-0 bg-black">
-                            <img src={st.img} alt={st.label} className="w-full h-full object-cover select-none pointer-events-none" />
-                          </div>
-                        ) : (
-                          <span className="text-base leading-none">{st.icon}</span>
-                        )}
+                        <span className="text-base leading-none">{st.icon}</span>
                         <span className="text-xs font-bold leading-tight line-clamp-1">{st.label}</span>
                       </div>
                       <span className="text-[10px] text-zinc-400 line-clamp-1">{st.desc}</span>
@@ -2018,7 +2000,7 @@ export const SettingsModal: React.FC = () => {
                         onClick={() => {
                           haptic.selection();
                           setCustomThumbUrl('');
-                          if (seekbarThumb === 'custom') setSeekbarThumb('kai_angel');
+                          if (seekbarThumb === 'custom') setSeekbarThumb('classic');
                         }}
                         className="p-1.5 rounded-xl bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-zinc-400 transition active:scale-95"
                         title="Удалить фото"
@@ -2185,12 +2167,14 @@ export const SettingsModal: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2.5">
                   <span>Плавное сведение (Кроссфейд)</span>
-                  <span className="text-white font-mono">{crossfadeSeconds} сек</span>
+                  <span className="text-zinc-400">Пока недоступно</span>
                 </div>
                 <div className="grid grid-cols-5 gap-1.5">
                   {[0, 3, 5, 8, 12].map((sec) => (
                     <button
                       key={sec}
+                      disabled
+                      title="Кроссфейд пока не поддерживается плеером"
                       onClick={() => {
                         haptic.selection();
                         setCrossfadeSeconds(sec);
@@ -2205,6 +2189,7 @@ export const SettingsModal: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-zinc-500 mt-2">Плеер пока переключает треки без наложения. Сохранённое значение применится после добавления поддержки.</p>
               </div>
 
               {/* Language Selection */}

@@ -40,49 +40,6 @@ const WormHead: React.FC<{ isPlaying: boolean; isDragging: boolean }> = ({ isPla
   </div>
 );
 
-// 👑 Kai Angel (Viperr Aesthetic Photo Avatar with Floating Neon Angel Halo)
-const KaiAngelHead: React.FC<{ isPlaying: boolean; isDragging: boolean }> = ({ isPlaying, isDragging }) => (
-  <div
-    className={`relative flex items-center justify-center transition-all select-none ${
-      isDragging ? 'scale-125' : isPlaying ? 'scale-110' : 'scale-100'
-    }`}
-  >
-    {/* Delicate floating angel halo */}
-    <div className="absolute -top-3 left-1/2 -translate-x-1/2 pointer-events-none">
-      <svg width="22" height="8" viewBox="0 0 22 8" fill="none" className="drop-shadow-[0_0_8px_#38bdf8]">
-        <ellipse cx="11" cy="4" rx="9" ry="2.6" stroke="#38bdf8" strokeWidth="1.8" fill="none" className="animate-pulse" />
-      </svg>
-    </div>
-    {/* High-res photo circle with glowing cyan Viperr border */}
-    <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.75)] bg-black ring-1 ring-white/30">
-      <img
-        src="/avatars/kai_angel_circle.png"
-        alt="Kai Angel"
-        className="w-full h-full object-cover select-none pointer-events-none"
-      />
-    </div>
-  </div>
-);
-
-
-// 🦇 9mice (Vamp Aesthetic Photo Avatar with Deep Violet Glow)
-const NineMiceHead: React.FC<{ isPlaying: boolean; isDragging: boolean }> = ({ isPlaying, isDragging }) => (
-  <div
-    className={`relative flex items-center justify-center transition-all select-none ${
-      isDragging ? 'scale-125' : isPlaying ? 'scale-110' : 'scale-100'
-    }`}
-  >
-    {/* Dark violet vamp glow aura */}
-    <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-purple-500 shadow-[0_0_14px_rgba(168,85,247,0.85)] bg-black ring-1 ring-purple-300/40">
-      <img
-        src="/avatars/9mice_circle.png"
-        alt="9mice"
-        className="w-full h-full object-cover select-none pointer-events-none"
-      />
-    </div>
-  </div>
-);
-
 // 📷 Custom Photo Avatar (User-uploaded face from phone/PC)
 const CustomThumb: React.FC<{ url: string; isPlaying: boolean; isDragging: boolean }> = ({ url, isPlaying, isDragging }) => (
   <div
@@ -357,8 +314,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ showTime = true, class
             className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none z-20 flex items-center justify-center transition-[left] duration-75"
             style={{ left: `${clampedPercent}%` }}
           >
-            {seekbarThumb === 'kai_angel' && <KaiAngelHead isPlaying={isPlaying} isDragging={isDragging} />}
-            {seekbarThumb === '9mice' && <NineMiceHead isPlaying={isPlaying} isDragging={isDragging} />}
             {seekbarThumb === 'worm' && <WormHead isPlaying={isPlaying} isDragging={isDragging} />}
             {seekbarThumb === 'custom' && <CustomThumb url={customThumbUrl} isPlaying={isPlaying} isDragging={isDragging} />}
             {seekbarThumb === 'artist' && <ArtistThumb coverUrl={currentTrack?.cover_url} isPlaying={isPlaying} isDragging={isDragging} />}

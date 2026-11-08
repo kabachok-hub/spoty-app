@@ -912,6 +912,10 @@ export function useAudioPlayer(enabled = true) {
   // Update Equalizer gains when state changes
   useEffect(() => {
     if (!enabled) return;
+    if (equalizerEnabled) {
+      if (deckA) initEqualizerGraph(deckA);
+      if (deckB) initEqualizerGraph(deckB);
+    }
     applyEqualizerGains(equalizerEnabled, equalizerBands);
   }, [equalizerEnabled, equalizerBands]);
 

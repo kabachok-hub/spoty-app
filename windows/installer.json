@@ -1,7 +1,7 @@
 {
   "appId": "app.spoty.desktop",
   "productName": "Spoty",
-  "directories": { "output": "installers/0.2.4" },
+  "directories": { "output": "installers/0.2.5" },
   "win": {
     "target": [{ "target": "nsis", "arch": ["x64"] }],
     "icon": "icon.ico",

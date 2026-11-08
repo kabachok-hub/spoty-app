@@ -78,7 +78,7 @@ const getInitialTopCloud = (): boolean => {
 const getInitialCrossfade = (): number => {
   try {
     const saved = localStorage.getItem('spotify_crossfade');
-    if (saved !== null) return parseInt(saved, 10);
+    if (saved !== null) return [0, 3, 5, 8, 12].includes(Number(saved)) ? Number(saved) : 0;
   } catch (e) {}
   return 5; // Default 5 seconds for smooth DJ style transitions
 };
@@ -94,7 +94,7 @@ const getInitialEqEnabled = (): boolean => {
 const getInitialEqPreset = (): string => {
   try {
     const saved = localStorage.getItem('spotify_eq_preset');
-    if (saved && EQUALIZER_PRESETS[saved]) return saved;
+    if (saved && (saved === 'custom' || EQUALIZER_PRESETS[saved])) return saved;
   } catch (e) {}
   return 'flat';
 };
@@ -104,7 +104,7 @@ const getInitialEqBands = (): [number, number, number, number, number] => {
     const saved = localStorage.getItem('spotify_eq_bands');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length === 5) {
+      if (Array.isArray(parsed) && parsed.length === 5 && parsed.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= -12 && n <= 12)) {
         return parsed as [number, number, number, number, number];
       }
     }
@@ -182,6 +182,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   setEqualizerBand: (bandIndex: number, value: number) => {
+    if (!Number.isInteger(bandIndex) || bandIndex < 0 || bandIndex >= 5 || !Number.isFinite(value)) return;
     const clamped = Math.max(-12, Math.min(12, Math.round(value)));
     const current = [...get().equalizerBands] as [number, number, number, number, number];
     current[bandIndex] = clamped;

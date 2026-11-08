@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Sliders, RotateCcw, Volume2 } from 'lucide-react';
 import { useSettingsStore, EQUALIZER_PRESETS } from '../../store/settingsStore';
 import { useTelegram } from '../../hooks/useTelegram';
+import { EqualizerCurve } from './EqualizerCurve';
 
 interface EqualizerModalProps {
   isOpen: boolean;
@@ -98,6 +99,18 @@ const EqualizerBand: React.FC<EqualizerBandProps> = ({
       {/* Interactive Vertical Slider Area */}
       <div
         ref={trackRef}
+        role="slider"
+        tabIndex={0}
+        aria-label={labelFreq}
+        aria-valuemin={-12}
+        aria-valuemax={12}
+        aria-valuenow={val}
+        aria-orientation="vertical"
+        onKeyDown={e => {
+          if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+            e.preventDefault(); onChange(e.key === 'Home' ? -12 : e.key === 'End' ? 12 : val + (e.key === 'ArrowUp' ? 1 : -1));
+          }
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -173,6 +186,21 @@ export const EqualizerModal: React.FC<EqualizerModalProps> = ({ isOpen, onClose 
   const setBand = useSettingsStore((state) => state.setEqualizerBand);
   const resetEqualizer = useSettingsStore((state) => state.resetEqualizer);
   const { haptic } = useTelegram();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const controls = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled),[tabindex="0"]') || []);
+    controls()[0]?.focus();
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const list = controls(), first = list[0], last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', keyboard);
+    return () => { document.removeEventListener('keydown', keyboard); previous?.focus(); };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -195,11 +223,13 @@ export const EqualizerModal: React.FC<EqualizerModalProps> = ({ isOpen, onClose 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in select-none"
     >
       <div
+        ref={panelRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-2xl text-white animate-scale-up space-y-5 max-h-[90vh] overflow-y-auto no-scrollbar"
+        role="dialog" aria-modal="true" aria-label="Эквалайзер Spoty"
+        className="w-full max-w-4xl bg-[#1a1a1a] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl text-white space-y-5 max-h-[95dvh] overflow-y-auto"
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
@@ -213,6 +243,7 @@ export const EqualizerModal: React.FC<EqualizerModalProps> = ({ isOpen, onClose 
             </div>
           </div>
           <button
+            aria-label="Закрыть эквалайзер"
             onClick={onClose}
             className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition"
           >
@@ -235,6 +266,7 @@ export const EqualizerModal: React.FC<EqualizerModalProps> = ({ isOpen, onClose 
           </div>
 
           <button
+            role="switch" aria-label="Включить эквалайзер" aria-checked={enabled}
             onClick={handleToggle}
             className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 ${
               enabled ? 'bg-[#1DB954]' : 'bg-zinc-700'
@@ -286,6 +318,11 @@ export const EqualizerModal: React.FC<EqualizerModalProps> = ({ isOpen, onClose 
           </div>
         </div>
 
+        <div className="rounded-2xl bg-[#101214] border border-white/10 p-2 sm:p-4">
+          <p className="text-xs text-zinc-400 mb-2">Тяни точки вверх и вниз или используй ползунки ниже. Двойной щелчок по ползунку — сброс полосы.</p>
+          <EqualizerCurve bands={bands} enabled={enabled} onChange={handleSliderChange} />
+          <p className="text-xs text-zinc-500">На Android обработка и доступные частоты зависят от устройства; график показывает настройки фильтров Spoty.</p>
+        </div>
         {/* 5-Band Vertical Frequency Sliders */}
         <div className="p-4 rounded-2xl bg-[#141414] border border-white/5 relative overflow-hidden">
           {/* Reference dB labels */}

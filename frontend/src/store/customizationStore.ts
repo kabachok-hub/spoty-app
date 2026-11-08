@@ -1,3 +1,4 @@
+import { DEFAULT_CUSTOMIZATION } from './defaultCustomization';
 import { create } from 'zustand';
 import { api } from '../api/client';
 
@@ -22,8 +23,6 @@ export type SliderStyle = 'classic' | 'thin' | 'smooth' | 'wave' | 'waveform';
 export type SeekbarThumbType =
   | 'classic'
   | 'worm'
-  | 'kai_angel'
-  | '9mice'
   | 'custom'
   | 'artist'
   | 'vinyl'
@@ -377,6 +376,8 @@ interface CustomizationState {
   resetAll: () => void;
 }
 
+const normalizeSeekbarThumb = (value: unknown): SeekbarThumbType => ['classic', 'worm', 'custom', 'artist', 'vinyl', 'fire', 'heart'].includes(String(value)) ? value as SeekbarThumbType : 'classic';
+
 const STORAGE_KEY = 'spoty_customization_v1';
 
 const getInitialState = () => {
@@ -389,7 +390,7 @@ const getInitialState = () => {
   return {};
 };
 
-const saved = getInitialState();
+const saved = { ...DEFAULT_CUSTOMIZATION, ...getInitialState() };
 
 let saveTimer: any = null;
 let isApplyingRemote = false;
@@ -452,12 +453,12 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => {
     bgType: saved.bgType || 'none',
     videoPresetId: saved.videoPresetId || 'cat_sakura_pixel',
     customBgUrl: saved.customBgUrl || '',
-    bgDim: typeof saved.bgDim === 'number' ? (saved.bgDim <= 10 ? 0 : saved.bgDim) : 0,
+    bgDim: typeof saved.bgDim === 'number' ? saved.bgDim : 0,
     bgScale: typeof saved.bgScale === 'number' ? saved.bgScale : 80,
     bgFit: saved.bgFit === 'ambient' ? 'cover' : (saved.bgFit || 'cover'),
-    bgMobileEffect: saved.bgMobileEffect === 'pan' ? 'none' : (saved.bgMobileEffect || 'none'),
+    bgMobileEffect: saved.bgMobileEffect || 'none',
     bgPosition: saved.bgPosition || 'center',
-    bgBlur: 0,
+    bgBlur: typeof saved.bgBlur === 'number' ? Math.max(0, Math.min(24, saved.bgBlur)) : 0,
     savedBgUrls: Array.isArray(saved.savedBgUrls) && saved.savedBgUrls.length > 0 ? saved.savedBgUrls : [
       {
         id: 'frogs_default',
@@ -471,10 +472,7 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => {
 
     playerStyle: saved.playerStyle || 'classic',
     sliderStyle: saved.sliderStyle || 'classic',
-    seekbarThumb:
-      (saved.seekbarThumb as any) === 'kai_angel_hoodie'
-        ? 'kai_angel'
-        : (saved.seekbarThumb as SeekbarThumbType) || 'classic',
+    seekbarThumb: normalizeSeekbarThumb(saved.seekbarThumb),
     customThumbUrl: saved.customThumbUrl || '',
     titleAlign: saved.titleAlign || 'center',
     showArtistAvatar: saved.showArtistAvatar !== undefined ? saved.showArtistAvatar : true,
@@ -488,6 +486,7 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => {
         set((state) => ({
           ...state,
           ...remote,
+          seekbarThumb: normalizeSeekbarThumb(remote.seekbarThumb ?? state.seekbarThumb),
           lastSyncedAt: updatedAt,
         }));
         const current = {
@@ -639,6 +638,7 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => {
     },
 
     setSeekbarThumb: (seekbarThumb) => {
+      seekbarThumb = normalizeSeekbarThumb(seekbarThumb);
       persist({ seekbarThumb });
       set({ seekbarThumb });
     },
@@ -670,23 +670,11 @@ export const useCustomizationStore = create<CustomizationState>((set, get) => {
 
     resetAll: () => {
       const defaults: Partial<CustomizationState> = {
-        theme: 'neutral',
         coverFilter: 'none',
-        glassMode: 'glass',
-        glassOpacity: 82,
-        glassBlur: 18,
-        bgType: 'none',
-        videoPresetId: 'cat_sakura_pixel',
         customBgUrl: '',
-        bgDim: 0,
-        playerStyle: 'classic',
-        sliderStyle: 'classic',
         seekbarThumb: 'classic',
         customThumbUrl: '',
-        titleAlign: 'center',
-        showArtistAvatar: true,
-        showQueueInPlayer: false,
-        navStyle: 'floating',
+        ...DEFAULT_CUSTOMIZATION,
       };
       persist(defaults);
       set(defaults as CustomizationState);
