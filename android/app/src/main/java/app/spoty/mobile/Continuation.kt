@@ -9,6 +9,8 @@ class Continuation(private val api: AppHttp) {
     private fun encode(value: String) = URLEncoder.encode(value, "UTF-8")
     fun next(track: JSONObject, existing: List<String>, token: String?): List<JSONObject> {
         val context = track.optJSONObject("playback_context")
+        val tuning = track.optJSONObject("mix_tuning")
+        val tuningParams = "&novelty=${tuning?.optInt("novelty",70)?.coerceIn(0,100) ?: 70}&diversity=${tuning?.optInt("diversity",50)?.coerceIn(0,100) ?: 50}"
         val visited = mutableSetOf<String>()
         context?.optJSONArray("visitedMixIds")?.let { array -> for (i in 0 until array.length()) visited.add(array.optString(i)) }
         context?.optString("id")?.let { visited.add(it) }
@@ -28,7 +30,7 @@ class Continuation(private val api: AppHttp) {
                 for (mix in candidates.filter { it.optString("query").isNotBlank() && it.optString("id") !in visited }.distinctBy { it.optString("id") }.take(3)) {
                     visited.add(mix.optString("id"))
                     try {
-                        val rows = fresh(JSONArray(api.request("/recommendations/mix/tracks?q=${encode(mix.getString("query"))}&limit=50&mix_id=${encode(mix.getString("id"))}", expectedToken = token)))
+                        val rows = fresh(JSONArray(api.request("/recommendations/mix/tracks?q=${encode(mix.getString("query"))}&limit=50&mix_id=${encode(mix.getString("id"))}$tuningParams", expectedToken = token)))
                         if (rows.isNotEmpty()) {
                             val origin = JSONObject(mix.toString()).put("visitedMixIds", JSONArray(visited.toList())).put("type", "mix")
                             return rows.map { it.put("recommended_automatically", true).put("playback_context", origin) }

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useMixTuning } from '../store/mixTuning';
 import { readAuthToken } from '../platform/authStorage';
 import { recordingVersion } from '../hooks/recordingVersions';
 import { isHiddenTrack } from '../store/recommendationPreferences';
@@ -73,7 +74,7 @@ export const api = {
   },
   getMixTracks: async (query: string, limit = 50, forceRefresh = false, mixId?: string): Promise<Track[]> => {
     const res = await apiClient.get<Track[]>('/recommendations/mix/tracks', {
-      params: { q: query, limit, force_refresh: forceRefresh, ...(mixId ? { mix_id: mixId } : {}) },
+      params: { q: query, limit, force_refresh: forceRefresh, novelty: useMixTuning.getState().novelty, diversity: useMixTuning.getState().diversity, ...(mixId ? { mix_id: mixId } : {}) },
     });
     return res.data.filter(t => !isHiddenTrack(t));
   },
@@ -200,6 +201,9 @@ export const api = {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  },
+  saveOffline: (track: Track): void => {
+    void import('../store/offlineStore').then(({ useOfflineStore }) => useOfflineStore.getState().download([track])).catch(() => {});
   },
   removeTrackFromPlaylist: async (playlistId: string, trackId: string): Promise<void> => {
     await apiClient.delete(`/playlists/${playlistId}/tracks/${trackId}`);

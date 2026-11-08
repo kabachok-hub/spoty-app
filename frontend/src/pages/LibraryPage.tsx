@@ -8,6 +8,7 @@ import { useTelegram } from '../hooks/useTelegram';
 import { ArtistCard } from '../components/cards/ArtistCard';
 import { TrackRow } from '../components/cards/TrackRow';
 import { DislikeButton } from '../components/player/DislikeButton';
+import { OfflinePanel } from '../components/player/OfflinePanel';
 
 interface LibraryPageProps {
   onSelectPlaylist: (playlistId: string) => void;
@@ -78,6 +79,7 @@ export const LibraryPage: React.FC<LibraryPageProps> = ({
         </button>
       </div>
 
+      <OfflinePanel />
       {/* Mini Stats */}
       <div className="hidden sm:grid grid-cols-3 gap-2">
         {[

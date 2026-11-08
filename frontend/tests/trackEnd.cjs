@@ -1,11 +1,12 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),ts=require('typescript');
-const tracks=[1,2,3].map(id=>({id:String(id),title:'Track '+id,artist_name:'Test',duration:10}));
+const crossfade=process.argv.includes('--crossfade'),offline=process.argv.includes('--offline');
+const tracks=[1,2,3].map(id=>({id:String(id),title:'Track '+id,artist_name:'Test',duration:crossfade?180:10}));
 const telegram = process.argv.includes('--telegram');
 const warmed=[];
 const lifecycle=new Map();
 function listen(name,fn){if(!lifecycle.has(name))lifecycle.set(name,new Set());lifecycle.get(name).add(fn);}
 function unlisten(name,fn){lifecycle.get(name)?.delete(fn);}
-const source = id => telegram && id !== '1' ? 'blob:prepared-'+id : 'https://audio.test/'+id;
+const source = id => offline || (telegram && id !== '1') ? 'blob:prepared-'+id : 'https://audio.test/'+id;
 let state={queue:tracks,queueIndex:0,currentTrack:tracks[0],currentTime:0,duration:10,isPlaying:true,playToken:1,volume:1,isMuted:false,seekTarget:null,repeatMode:'all',isShuffle:false,playbackIntent:0,recoveryPosition:null,playedTrackIds:[]};
 let effects=[],refs=[],pending=[],effectIndex=0,refIndex=0,scheduled=false;
 function change(patch){state={...state,...patch};if(!scheduled){scheduled=true;queueMicrotask(()=>{scheduled=false;render();});}}
@@ -22,18 +23,18 @@ Object.assign(state,{
 const store=selector=>selector(state);store.getState=()=>state;store.setState=change;
 const registry=new Map();
 class Audio{
- constructor(){this.listeners=new Map();this.style={};this.paused=true;this.ended=false;this.currentTime=0;this.duration=10;this.readyState=4;this.playbackRate=1;this.src='';}
+ constructor(){this.listeners=new Map();this.style={};this.paused=true;this.ended=false;this.currentTime=0;this.duration=crossfade?180:10;this.loads=0;this.readyState=4;this.playbackRate=1;this.src='';}
  addEventListener(n,f){if(!this.listeners.has(n))this.listeners.set(n,new Set());this.listeners.get(n).add(f);}
  removeEventListener(n,f){this.listeners.get(n)?.delete(f);}
  emit(n){for(const f of [...(this.listeners.get(n)||[])])f({});}
  setAttribute(){}
  play(){this.paused=false;this.ended=false;this.emit('play');this.emit('playing');return Promise.resolve();}
  pause(){const was=this.paused;this.paused=true;if(!was)this.emit('pause');}
- load(){this.currentTime=0;this.ended=false;queueMicrotask(()=>this.emit('loadedmetadata'));}
- finish(){this.currentTime=10;this.paused=true;this.ended=true;this.emit('timeupdate');this.emit('ended');}
+ load(){this.loads++;this.currentTime=0;this.ended=false;queueMicrotask(()=>this.emit('loadedmetadata'));}
+ finish(){this.currentTime=this.duration;this.paused=true;this.ended=true;this.emit('timeupdate');this.emit('ended');}
 }
 const document={getElementById:id=>registry.get(id),createElement:()=>new Audio(),body:{appendChild:a=>registry.set(a.id,a)},visibilityState:'visible',addEventListener:(n,f)=>listen('document:'+n,f),removeEventListener:(n,f)=>unlisten('document:'+n,f)};
-const settings=selector=>selector({equalizerEnabled:false,equalizerBands:[0,0,0,0,0]});settings.getState=()=>({equalizerEnabled:false});
+const settings=selector=>selector({equalizerEnabled:false,equalizerBands:[0,0,0,0,0]});settings.getState=()=>({equalizerEnabled:false,crossfadeSeconds:crossfade?5:0});
 const recoveryContext={exports:{},setTimeout,clearTimeout,Date,Set};vm.createContext(recoveryContext);vm.runInContext(ts.transpileModule(fs.readFileSync('src/hooks/playbackRecovery.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,recoveryContext);
 const modules={
  './playbackRecovery':recoveryContext.exports,
@@ -46,32 +47,47 @@ const modules={
  './playbackDiagnostics':{tracePlayback(){},playbackFailure:()=>({code:'source',message:'Полная запись недоступна'})},
  './telegramAudioBuffer':{bufferedTelegramSource:id=>id!=='1'?source(id):undefined,warmTelegramQueue:async(queue,index)=>{warmed.push({queue,index});},clearTelegramAudioBuffer(){},invalidateTelegramRecording(){}},
 };
-const context={exports:{},require:n=>modules[n]||{},document,navigator:{userAgent:telegram?'Telegram Android':'Browser'},window:{location:{origin:'https://audio.test',search:''},addEventListener:(n,f)=>listen('window:'+n,f),removeEventListener:(n,f)=>unlisten('window:'+n,f),setTimeout},console,setTimeout,clearTimeout,URL,WeakMap,DOMException};
+const context={exports:{},require:n=>modules[n]||{},document,navigator:{userAgent:telegram?'Telegram Android':'Browser'},window:{location:{origin:'https://audio.test',search:''},addEventListener:(n,f)=>listen('window:'+n,f),removeEventListener:(n,f)=>unlisten('window:'+n,f),setTimeout},console,setTimeout,clearTimeout,setInterval,clearInterval,URL,WeakMap,DOMException};
 vm.createContext(context);
 vm.runInContext(ts.transpileModule(fs.readFileSync('src/hooks/useAudioPlayer.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,context);
 function render(){effectIndex=0;refIndex=0;context.exports.useAudioPlayer();const tasks=pending;pending=[];tasks.forEach(fn=>fn());}
 const flush=()=>new Promise(setImmediate);
 (async()=>{
+ if(offline)context.exports.registerOfflineResolver(id=>Promise.resolve('blob:prepared-'+id));
  render();await flush();await flush();
- const audio=registry.get('spotify-deck-a');
+ let audio=context.exports.getActiveAudio();
  assert.equal(state.currentTrack.id,'1');assert.equal(audio.paused,false);
+ if(crossfade){
+  const old=audio,standby=context.exports.getStandbyAudio(),loads=standby.loads;
+  old.currentTime=176;old.emit('timeupdate');await flush();await flush();
+  audio=context.exports.getActiveAudio();
+  assert.equal(state.currentTrack.id,'2');assert.equal(audio,standby);assert.equal(audio.loads,loads,'prepared incoming source must not be reloaded');
+  assert.equal(old.paused,false,'outgoing track must continue during the overlap');assert.equal(old.src,'https://audio.test/1','queue prefetch must not overwrite the outgoing tail');
+  await new Promise(r=>setTimeout(r,120));
+  assert(audio.volume>0 && audio.volume<.5);assert(old.volume>0 && old.volume<.5);
+  assert(audio.volume+old.volume<=.501,'blend must retain output headroom');
+  change({seekTarget:7});await flush();assert.equal(old.paused,true,'seeking cancels the old tail');assert.equal(audio.currentTime,7);
+  change({isPlaying:false});await flush();assert.equal(old.paused,true);assert.equal(audio.paused,true);
+  effects.forEach(e=>e?.cleanup?.());console.log('Crossfade passed: real overlap, prepared-deck reuse, no tail overwrite, headroom, seek and pause cancellation.');return;
+ }
+
  if(process.argv.includes('--recovery')){
   audio.currentTime=4;audio.emit('timeupdate');audio.emit('error');await flush();
   assert.equal(state.isPlaying,false);assert(state.playbackNotice);
   await new Promise(r=>setTimeout(r,750));await flush();await flush();
   assert.equal(state.currentTrack.id,'1');assert.equal(audio.paused,false);assert.equal(audio.currentTime,4,'Retry restores media position');
   audio.emit('error');await flush();await new Promise(r=>setTimeout(r,350));await flush();await flush();
-  assert.equal(state.currentTrack.id,'2');assert.equal(audio.paused,false);
+  audio=context.exports.getActiveAudio();assert.equal(state.currentTrack.id,'2');assert.equal(audio.paused,false);
   effects.forEach(e=>e?.cleanup?.());console.log('Real audio hook recovery passed: native error → retry at4s → next queue song, no permanent stall.');return;
  }
 
  audio.finish();await flush();await flush();
- assert.equal(state.currentTrack.id,'2');assert.equal(audio.src,source('2'));assert.equal(audio.paused,false);
+ audio=context.exports.getActiveAudio();assert.equal(state.currentTrack.id,'2');assert.equal(audio.src,source('2'));assert.equal(audio.paused,false);
  audio.finish();await flush();await flush();
- assert.equal(state.currentTrack.id,'3');assert.equal(audio.src,source('3'));assert.equal(audio.paused,false);
+ audio=context.exports.getActiveAudio();assert.equal(state.currentTrack.id,'3');assert.equal(audio.src,source('3'));assert.equal(audio.paused,false);
  change({repeatMode:'one'});await flush();
  audio.finish();await flush();await flush();
- assert.equal(state.currentTrack.id,'3');assert.equal(audio.currentTime,0);assert.equal(audio.paused,false);
+ audio=context.exports.getActiveAudio();assert.equal(state.currentTrack.id,'3');assert.equal(audio.currentTime,0);assert.equal(audio.paused,false);
  audio.currentTime=4;change({isPlaying:false});await flush();assert.equal(audio.paused,true);
  change({isPlaying:true});await flush();assert.equal(audio.paused,false);assert.equal(audio.currentTime,4);
  const originalSource=audio.src;

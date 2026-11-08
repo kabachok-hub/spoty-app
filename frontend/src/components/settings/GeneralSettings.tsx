@@ -6,12 +6,14 @@ import { openTasteSetup } from '../onboarding/TasteSetup';
 import { APP_VERSION, openAppUpdate, useAppUpdates } from '../../platform/appUpdates';
 import { isNativeClient } from '../../platform/nativeBridge';
 import { UpdateAction } from './UpdateAction';
+import { MixTuning } from './MixTuning';
 
 export function GeneralSettings() {
   const user = useUserStore(s => s.user), language = useSettingsStore(s => s.language);
   const release = useAppUpdates(s => s.release), status = useAppUpdates(s => s.status), check = useAppUpdates(s => s.check);
   const close = () => useSettingsStore.getState().setSettingsOpen(false);
   return <div className="spoty-settings-general space-y-6">
+    <MixTuning />
     <section className="spoty-setting-section"><h3>Аккаунт</h3><p>{user?.first_name || 'Войдите через Telegram, чтобы сохранить свою библиотеку.'}</p>
       {user && <><button className="spoty-setting-row" onClick={() => { close(); openTasteSetup(); }}><Sparkles size={18}/><span>Музыкальные предпочтения<small>Артисты и рекомендации под ваш вкус</small></span><span>→</span></button>
       <button className="spoty-setting-row" onClick={() => { close(); useNavigationStore.getState().openStats(); }}><BarChart3 size={18}/><span>Статистика прослушиваний</span><span>→</span></button></>}

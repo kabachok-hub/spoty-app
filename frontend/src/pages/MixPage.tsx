@@ -1,3 +1,4 @@
+import { OfflineDownloadButton } from '../components/player/OfflinePanel';
 import React, { useEffect, useState } from 'react';
 import { Play, Shuffle, Sparkles, Disc, ChevronRight, ListPlus, Compass, RefreshCw } from 'lucide-react';
 import { Track } from '../api/types';
@@ -324,6 +325,7 @@ export const MixPage: React.FC<MixPageProps> = ({
         </div>
       )}
 
+      <OfflineDownloadButton tracks={tracks} />
       {/* Track List (Up to 50 tracks) */}
       <div className="p-4 max-w-2xl mx-auto">
         {loading ? (

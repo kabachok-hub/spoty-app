@@ -22,6 +22,8 @@ interface SettingsState {
   language: Language;
   theme: ThemeType;
   audioQuality: 'high' | 'normal';
+  normalizeAudio: boolean;
+  setNormalizeAudio: (enabled: boolean) => void;
   showTopCloud: boolean;
   isNotificationsOpen: boolean;
   isSettingsOpen: boolean;
@@ -77,10 +79,10 @@ const getInitialTopCloud = (): boolean => {
 
 const getInitialCrossfade = (): number => {
   try {
-    const saved = localStorage.getItem('spotify_crossfade');
+    const saved = localStorage.getItem('spoty_crossfade_v2');
     if (saved !== null) return [0, 3, 5, 8, 12].includes(Number(saved)) ? Number(saved) : 0;
   } catch (e) {}
-  return 5; // Default 5 seconds for smooth DJ style transitions
+  return 0;
 };
 
 const getInitialEqEnabled = (): boolean => {
@@ -116,6 +118,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   language: getInitialLanguage(),
   theme: getInitialTheme(),
   audioQuality: 'high',
+  normalizeAudio: (() => { try { return localStorage.getItem('spoty_normalize_audio') === 'true'; } catch { return false; } })(),
+  setNormalizeAudio: enabled => { try { localStorage.setItem('spoty_normalize_audio', String(enabled)); } catch {} set({ normalizeAudio: enabled }); },
   showTopCloud: getInitialTopCloud(),
   isNotificationsOpen: false,
   isSettingsOpen: false,
@@ -158,7 +162,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setCrossfadeSeconds: (sec: number) => {
     try {
-      localStorage.setItem('spotify_crossfade', String(sec));
+      localStorage.setItem('spoty_crossfade_v2', String(sec));
     } catch (e) {}
     set({ crossfadeSeconds: sec });
   },

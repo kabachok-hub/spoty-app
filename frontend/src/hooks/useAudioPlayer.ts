@@ -205,6 +205,69 @@ let currentLoadedTrackIdB: string | null = null;
 let hasTriggeredTransition = false;
 let isSwitchingDeck = false;
 let playbackRequest = 0;
+let offlineResolver: ((id: string) => Promise<string | undefined> | undefined) | null = null;
+let offlineLoading = false;
+export function registerOfflineResolver(resolve: typeof offlineResolver) { offlineResolver = resolve; }
+
+const normalizationGains = new Map<string, number>();
+const gainTimers = new Map<string, ReturnType<typeof setInterval>>();
+const deckMix = { A: 1, B: 1 };
+let fadeTimer: ReturnType<typeof setInterval> | null = null;
+let fadeOutgoing: 'A' | 'B' | null = null;
+let fadeRequest: { nextId: string; seconds: number } | null = null;
+let fadeInitialSeek = false;
+export function setNormalizationGain(id: string, gain: number) {
+  if (!Number.isFinite(gain) || gain < .05 || gain > 2) return;
+  const previous = normalizationGains.get(id) || 1;
+  const timer = gainTimers.get(id); if (timer) clearInterval(timer);
+  if (usePlayerStore.getState().isPlaying && usePlayerStore.getState().currentTrack?.id === id && Math.abs(previous-gain) > .001) {
+    const started = Date.now();
+    gainTimers.set(id, setInterval(() => {
+      const p = Math.min(1,(Date.now()-started)/400);
+      normalizationGains.set(id, previous+(gain-previous)*p); applyDeckVolumes();
+      if (p >= 1) { const current = gainTimers.get(id); if (current) clearInterval(current); gainTimers.delete(id); }
+    },40));
+    return;
+  }
+  normalizationGains.delete(id); normalizationGains.set(id, gain);
+  if (normalizationGains.size > 256) normalizationGains.delete(normalizationGains.keys().next().value!);
+  applyDeckVolumes();
+}
+function trackVolume(id: string | null | undefined) {
+  const state = usePlayerStore.getState();
+  const gain = useSettingsStore.getState().normalizeAudio && id ? normalizationGains.get(id) || 1 : 1;
+  return Math.max(0, Math.min(1, computeEffectiveVolume(state.volume, state.isMuted) * gain));
+}
+function applyDeckVolumes() {
+  if (deckA) deckA.volume = trackVolume(currentLoadedTrackIdA) * deckMix.A;
+  if (deckB) deckB.volume = trackVolume(currentLoadedTrackIdB) * deckMix.B;
+}
+function cancelCrossfade() {
+  if (fadeTimer !== null) clearInterval(fadeTimer);
+  fadeTimer = null;
+  if (fadeOutgoing && fadeOutgoing !== activeDeck) (fadeOutgoing === 'A' ? deckA : deckB)?.pause();
+  fadeOutgoing = null; deckMix.A = deckMix.B = 1; applyDeckVolumes();
+}
+function beginCrossfade(outgoing: 'A' | 'B', seconds: number) {
+  fadeOutgoing = outgoing;
+  const started = Date.now(), incoming = activeDeck;
+  fadeTimer = setInterval(() => {
+    const state = usePlayerStore.getState();
+    if (!state.isPlaying || activeDeck !== incoming) { cancelCrossfade(); return; }
+    const progress = Math.min(1, (Date.now() - started) / (seconds * 1000));
+    const out = Math.cos(progress * Math.PI / 2), into = Math.sin(progress * Math.PI / 2);
+    const headroom = Math.max(1, out + into);
+    deckMix[outgoing] = out / headroom;
+    deckMix[incoming] = into / headroom;
+    applyDeckVolumes();
+    if (progress >= 1) {
+      cancelCrossfade();
+      const next = state.queue[state.queueIndex + 1] || (state.repeatMode === 'all' ? state.queue[0] : null);
+      if (next) primeStandbyDeck(next);
+    }
+  }, 50);
+}
+
 
 function ensureAudioElements(): { a: HTMLAudioElement; b: HTMLAudioElement } {
   if (!deckA && typeof document !== 'undefined') {
@@ -274,7 +337,16 @@ export function primeStandbyDeck(nextTrack: Track | null) {
   if (!nextTrack || !nextTrack.id) return;
   const standby = getStandbyAudio();
   if (!standby) return;
+  if (fadeOutgoing && standby === (fadeOutgoing === 'A' ? deckA : deckB)) return;
 
+  const offline = offlineResolver?.(nextTrack.id);
+  if (offline) {
+    setStandbyTrackId(nextTrack.id);
+    void offline.then(url => {
+      if (url && getStandbyAudio() === standby && getStandbyTrackId() === nextTrack.id) { standby.src = url; standby.preload = 'auto'; standby.load(); }
+    }).catch(() => {});
+    return;
+  }
   const nextQuery = `${nextTrack.artist_name} - ${nextTrack.title}`;
   const streamUrl = api.getStreamUrl(nextTrack.id, nextQuery, nextTrack.duration);
 
@@ -588,6 +660,7 @@ export function useAudioPlayer(enabled = true) {
   const queue = usePlayerStore((state) => state.queue);
   const queueIndex = usePlayerStore((state) => state.queueIndex);
 
+  const normalizeAudio = useSettingsStore(state => state.normalizeAudio);
   const equalizerEnabled = useSettingsStore((state) => state.equalizerEnabled);
   const equalizerBands = useSettingsStore((state) => state.equalizerBands);
 
@@ -639,6 +712,21 @@ export function useAudioPlayer(enabled = true) {
 
         if (Math.floor(deck.currentTime) % 4 === 0) {
           syncMediaSession(usePlayerStore.getState().currentTrack, !deck.paused, deck);
+        }
+
+
+        const state = usePlayerStore.getState(), seconds = useSettingsStore.getState().crossfadeSeconds;
+        const nextIndex = state.queueIndex + 1 < state.queue.length ? state.queueIndex + 1 : state.repeatMode === 'all' ? 0 : -1;
+        const next = state.queue[nextIndex], standby = getStandbyAudio();
+        const remaining = deck.duration - deck.currentTime;
+        if (!isTelegramEnv() && seconds > 0 && state.isPlaying && state.repeatMode !== 'one'
+          && (!state.isShuffle || next?.queued_next) && !fadeRequest && fadeTimer === null
+          && (document.visibilityState === 'visible' || !!window.SpotyDesktop)
+          && remaining > .2 && remaining <= seconds && deck.duration > seconds * 2 + 10
+          && next && next.id !== state.currentTrack?.id && getStandbyTrackId() === next.id && standby && standby.readyState >= 3) {
+          fadeRequest = { nextId: next.id, seconds: remaining };
+          state.nextTrack('ended');
+          return;
         }
 
         // Proactively prime standby deck and server cache 25s before end (ONCE per track)
@@ -886,6 +974,8 @@ export function useAudioPlayer(enabled = true) {
     window.addEventListener('touchstart', handleGlobalUserGesture, { capture: true, passive: true });
 
     return () => {
+      cancelCrossfade(); fadeRequest = null;
+      for (const timer of gainTimers.values()) clearInterval(timer); gainTimers.clear();
       detachA();
       detachB();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -922,25 +1012,66 @@ export function useAudioPlayer(enabled = true) {
   // Handle explicit track changes from user UI interactions
   useEffect(() => {
     if (!enabled) return;
-    const active = getActiveAudio();
+    let active = getActiveAudio();
     if (!active || !currentTrack) return;
 
     clearStall();
+    cancelCrossfade();
+    const blend = fadeRequest?.nextId === currentTrack.id ? fadeRequest : null;
+    fadeRequest = null;
+    const outgoing = activeDeck;
     const request = ++playbackRequest;
+    offlineLoading = false;
     usePlayerStore.setState({playbackError:null});
-    setActiveTrackId(currentTrack.id);
+
     hasPreloadedNextForCurrentRef.current = null;
     hasTriggeredTransition = false;
 
-    const effVol = computeEffectiveVolume(volume, isMuted);
-    active.volume = effVol;
+
 
     const streamUrl = api.getStreamUrl(
       currentTrack.id,
       `${currentTrack.artist_name} - ${currentTrack.title}`,
       currentTrack.duration
     );
-    active.src = (isTelegramEnv() ? bufferedTelegramSource(currentTrack.id) : undefined) || streamUrl;
+    const storedSource = offlineResolver?.(currentTrack.id)?.catch(() => undefined);
+    const cachedStandby = getStandbyAudio();
+    const offlinePrepared = !isTelegramEnv() && getStandbyTrackId() === currentTrack.id && cachedStandby?.src.startsWith('blob:') && cachedStandby.readyState >= 1;
+    if (storedSource && !offlinePrepared) {
+      offlineLoading = true;
+      const selectedAudio = active;
+      const offlineResume = usePlayerStore.getState().recoveryPosition;
+      const offlinePosition = offlineResume ?? usePlayerStore.getState().currentTime;
+      const preservePosition = offlineResume !== null || isInitialMountRef.current || !usePlayerStore.getState().isPlaying;
+      recoverySeekRef.current = offlineResume;
+      if (offlineResume !== null) usePlayerStore.setState({ recoveryPosition: null });
+      hasTriggeredTransition = true; selectedAudio.pause();
+      setActiveTrackId(currentTrack.id);
+      void storedSource.then(url => {
+        if (request !== playbackRequest) return;
+        offlineLoading = false;
+        selectedAudio.src = url || streamUrl;
+        selectedAudio.currentTime = preservePosition ? offlinePosition : 0;
+        selectedAudio.load(); applyDeckVolumes();
+        hasTriggeredTransition = false;
+        if (usePlayerStore.getState().isPlaying) {
+          initEqualizerGraph(selectedAudio);
+          void playWithDeadline(selectedAudio).catch(error => { if (request === playbackRequest) failPlayback(error, selectedAudio); });
+        }
+        isInitialMountRef.current = false;
+      }).catch(error => { if (request === playbackRequest) { offlineLoading = false; hasTriggeredTransition = false; failPlayback(error, selectedAudio); } });
+      return;
+    }
+    const standby = getStandbyAudio();
+    const reuse = !isTelegramEnv() && getStandbyTrackId() === currentTrack.id && standby && (standby.src === new URL(streamUrl, window.location.origin).href || offlinePrepared) && standby.readyState >= 1;
+    if (reuse && standby) {
+      const previous = active;
+      activeDeck = activeDeck === 'A' ? 'B' : 'A'; active = standby;
+      if (blend && !previous.paused) { deckMix[activeDeck] = 0; fadeInitialSeek = true; fadeOutgoing = outgoing; }
+      else previous.pause();
+    } else active.src = (isTelegramEnv() ? bufferedTelegramSource(currentTrack.id) : undefined) || streamUrl;
+    setActiveTrackId(currentTrack.id);
+    applyDeckVolumes();
     tracePlayback('source', active, currentTrack.id, 'none', audioContext?.state);
 
     const resumePosition=usePlayerStore.getState().recoveryPosition;
@@ -952,16 +1083,21 @@ export function useAudioPlayer(enabled = true) {
     } else {
       active.currentTime = 0;
     }
-    active.load();
+    if (!reuse) active.load();
 
     syncMediaSession(currentTrack, isPlaying, active);
 
     if (isPlaying) {
       startKeepAlive();
       initEqualizerGraph(active);
-      playWithDeadline(active).catch((err) => {
+      const playingAudio = active;
+      playWithDeadline(active).then(() => {
+        if (request !== playbackRequest || !usePlayerStore.getState().isPlaying) { if (blend) cancelCrossfade(); return; }
+        if (blend && reuse) beginCrossfade(outgoing, blend.seconds);
+      }).catch((err) => {
         if (request !== playbackRequest) return;
-        failPlayback(err,active);
+        cancelCrossfade();
+        failPlayback(err,playingAudio);
         console.warn('Audio play deferred:', err);
       });
       if (!isInitialMountRef.current) {
@@ -1002,7 +1138,13 @@ export function useAudioPlayer(enabled = true) {
         console.warn('Play interrupted:', e);
       });
       startKeepAlive();
+      if (!isTelegramEnv() && fadeOutgoing === null) {
+        const state = usePlayerStore.getState();
+        const next = state.queue[state.queueIndex + 1] || (state.repeatMode === 'all' ? state.queue[0] : null);
+        if (next && next.id !== currentTrack.id) primeStandbyDeck(next);
+      }
     } else if (!isPlaying && !active.paused) {
+      cancelCrossfade(); fadeRequest = null;
       active.pause();
       stopKeepAlive();
     }
@@ -1014,6 +1156,9 @@ export function useAudioPlayer(enabled = true) {
     if (!enabled) return;
     const active = getActiveAudio();
     if (!active || seekTarget === null) return;
+    if (offlineLoading) { recoverySeekRef.current = seekTarget; clearSeekTarget(); return; }
+    if (fadeInitialSeek && seekTarget === 0) fadeInitialSeek = false;
+    else cancelCrossfade();
 
     try {
       if (active.duration && !isNaN(active.duration) && active.duration > 0) {
@@ -1035,10 +1180,8 @@ export function useAudioPlayer(enabled = true) {
   // Handle volume & mute
   useEffect(() => {
     if (!enabled) return;
-    const effVol = computeEffectiveVolume(volume, isMuted);
-    if (deckA) deckA.volume = effVol;
-    if (deckB) deckB.volume = effVol;
-  }, [volume, isMuted]);
+    applyDeckVolumes();
+  }, [volume, isMuted, normalizeAudio]);
 
   return {
     audio: getActiveAudio(),

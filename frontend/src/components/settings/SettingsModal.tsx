@@ -1,3 +1,4 @@
+import { SoundOptions } from './SoundOptions';
 import { GeneralSettings } from './GeneralSettings';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -2168,34 +2169,7 @@ export const SettingsModal: React.FC = () => {
                 </button>
               </div>
 
-              {/* Crossfade */}
-              <div>
-                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2.5">
-                  <span>Плавное сведение (Кроссфейд)</span>
-                  <span className="text-zinc-400">Пока недоступно</span>
-                </div>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[0, 3, 5, 8, 12].map((sec) => (
-                    <button
-                      key={sec}
-                      disabled
-                      title="Кроссфейд пока не поддерживается плеером"
-                      onClick={() => {
-                        haptic.selection();
-                        setCrossfadeSeconds(sec);
-                      }}
-                      className={`py-2 rounded-xl border text-xs font-semibold transition active:scale-95 ${
-                        crossfadeSeconds === sec
-                          ? 'border-[var(--accent-color,#1DB954)] bg-[var(--accent-color,#1DB954)]/15 text-white'
-                          : 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
-                      }`}
-                    >
-                      {sec === 0 ? 'Выкл' : `${sec}с`}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-zinc-500 mt-2">Плеер пока переключает треки без наложения. Сохранённое значение применится после добавления поддержки.</p>
-              </div>
+              <SoundOptions />
 
               {/* Language Selection */}
               <div>

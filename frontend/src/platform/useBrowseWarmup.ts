@@ -9,8 +9,10 @@ const prepared = new Map<string, number>();
 let budget = { started: 0, count: 0 };
 export function warmVisibleTracks(tracks: Track[]) {
   const connection = (navigator as any).connection;
-  if (!isNativeClient() || isHostHidden() || document.visibilityState !== 'visible' || navigator.onLine === false
+  if (isHostHidden() || document.visibilityState !== 'visible' || navigator.onLine === false
     || connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return;
+  const player = usePlayerStore.getState();
+  if (player.currentTrack && player.isPlaying && player.currentTime < 3) return;
   const now = Date.now();
   if (now - budget.started >= 60000) budget = { started: now, count: 0 };
   // Only two suggestions per settled view, four preparations per minute overall.
@@ -20,14 +22,14 @@ export function warmVisibleTracks(tracks: Track[]) {
     if (now - (prepared.get(key) || 0) < 10 * 60000) continue;
     prepared.set(key, now); budget.count++;
     if (prepared.size > 100) prepared.delete(prepared.keys().next().value!);
-    void api.preloadTrack(track.id, `${track.artist_name} - ${track.title}`, track.duration);
+    void api.preloadTrack(track.id, `${track.artist_name} - ${track.title}`, track.duration).catch(() => {});
   }
 }
-/** Native clients only: begin preparing likely first selections while the user browses. */
+/** Prepare likely first selections without competing with an audio startup. */
 export function useBrowseWarmup(tracks: Track[], tab: 'home' | 'search', enabled = true) {
   const view = useNavigationStore(s => s.currentView);
   useEffect(() => {
-    if (!enabled || view.type !== 'tab' || view.tab !== tab || !tracks.length || !isNativeClient()) return;
+    if (!enabled || view.type !== 'tab' || view.tab !== tab || !tracks.length) return;
     const timer = setTimeout(() => warmVisibleTracks(tracks), 1200);
     return () => clearTimeout(timer);
   }, [tracks, view, tab, enabled]);

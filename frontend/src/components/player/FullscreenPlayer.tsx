@@ -339,7 +339,8 @@ export const FullscreenPlayer: React.FC = () => {
 
                   <div className="h-px bg-white/10 my-1" />
 
-                  <button
+                  <button className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/10 text-left text-zinc-200" onClick={() => api.saveOffline(currentTrack)}><Download size={16} />Сохранить офлайн</button>
+              <button
                     onClick={() => {
                       setShowMoreMenu(false);
                       api.downloadTrack(currentTrack);

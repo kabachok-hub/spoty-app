@@ -8,6 +8,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.ContentMetadata
@@ -29,18 +30,23 @@ class AudioCache(context: Context) {
     }
     private val cache = cache(context)
     val factory: CacheDataSource.Factory = CacheDataSource.Factory().setCache(cache)
-        .setUpstreamDataSourceFactory(DefaultHttpDataSource.Factory().setConnectTimeoutMs(10000).setReadTimeoutMs(45000))
+        .setUpstreamDataSourceFactory(DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory().setConnectTimeoutMs(10000).setReadTimeoutMs(45000)))
         .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     private val handler = Handler(Looper.getMainLooper())
     private val executor = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(2))
     private val jobs = mutableMapOf<String, CacheWriter>()
     private val attempted = LinkedHashMap<String, Long>()
     private var closed = false
+    fun hasStart(url: String): Boolean {
+        if (url.startsWith("file:")) return android.net.Uri.parse(url).path?.let { File(it).isFile } ?: false
+        val size = ContentMetadata.getContentLength(cache.getContentMetadata(url))
+        return cache.isCached(url,0,minOf(if (size > 0) size else 32768L,32768L))
+    }
 
     /** Same canonical versioned URLs as playback. No current source/time changes. */
     fun warm(urls: List<String>) {
         if (closed) return
-        val wanted = urls.distinct().take(2).toSet()
+        val wanted = urls.filter { it.startsWith("https://") }.distinct().take(2).toSet()
         for (key in jobs.keys.toList()) if (key !in wanted) { jobs.remove(key)?.cancel() }
         val now = SystemClock.elapsedRealtime()
         for (url in wanted) {

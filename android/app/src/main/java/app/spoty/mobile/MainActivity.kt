@@ -123,6 +123,12 @@ class MainActivity : ComponentActivity() {
                 val data = request.optJSONObject("data") ?: JSONObject()
                 val vault = TokenVault(this)
                 when (request.getString("command")) {
+                    "offlineList" -> respond(OfflineFiles.get(this).list())
+                    "offlineStatus" -> respond(OfflineFiles.get(this).status())
+                    "offlineStart" -> respond(OfflineFiles.get(this).start(data))
+                    "offlineCancel" -> { OfflineFiles.get(this).cancel(); respond() }
+                    "offlineRemove" -> respond(OfflineFiles.get(this).remove(data.getString("id")))
+                    "offlineLimit" -> respond(OfflineFiles.get(this).setLimit(data.getInt("mb")))
                     "updateStart" -> respond(updater.start(data.getString("version")))
                     "updateStatus" -> respond(updater.status())
                     "updateInstall" -> respond(updater.install())

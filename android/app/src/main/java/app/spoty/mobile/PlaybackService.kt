@@ -31,6 +31,14 @@ import kotlin.math.pow
 class PlaybackService : MediaSessionService() {
     companion object { var instance: PlaybackService? = null; private set }
     private lateinit var player: ExoPlayer
+    private val trackGain = TrackGainProcessor()
+    private lateinit var loudness: TrackLoudness
+    private lateinit var blend: NativeBlend
+    private var normalizationEnabled = false
+    private var crossfadeSeconds = 0.0
+    private var userVolume = .5
+    private var masterVolume = .5f
+    private var mixTuning = JSONObject().put("novelty",70).put("diversity",50)
     private var session: MediaSession? = null
     private val handler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
@@ -70,18 +78,25 @@ class PlaybackService : MediaSessionService() {
         val sources = DefaultMediaSourceFactory(audioCache.factory)
             .setLoadErrorHandlingPolicy(DefaultLoadErrorHandlingPolicy(0))
         val loadControl = DefaultLoadControl.Builder().setBufferDurationsMs(15000, 45000, 1000, 2000).build()
-        player = ExoPlayer.Builder(this).setMediaSourceFactory(sources).setLoadControl(loadControl).build().apply {
+        player = ExoPlayer.Builder(this, GainRenderers(this,trackGain)).setMediaSourceFactory(sources).setLoadControl(loadControl).build().apply {
             setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             setHandleAudioBecomingNoisy(true); setWakeMode(C.WAKE_MODE_NETWORK)
         }
+        loudness = TrackLoudness(this) { if (instance === this) applyAudioVolumes() }
+        blend = NativeBlend(this,player,audioCache,{ masterVolume },{ occurrence ->
+            if (normalizationEnabled) loudness.gain(queue.find { id(it) == occurrence }) else 1f
+        })
         session = MediaSession.Builder(this, player).setSessionActivity(PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build()
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 if (changing) return
                 val next = item?.mediaId.orEmpty()
+                if (!blend.ownsTransition(next)) blend.cancel()
+                applyAudioVolumes()
+                if (normalizationEnabled) current()?.let { loudness.prepare(it) }
                 if (next != occurrence || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
-                    finishCoverage(reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !technicalTransition)
+                    finishCoverage(reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !technicalTransition && !blend.ownsTransition(next))
                     occurrence = next; coverage = ListeningCoverage(); historyRecorded = false; eventId = UUID.randomUUID().toString()
                     coverageDuration = trackDuration()
                     current()?.getJSONObject("track")?.let { played.add(it.getString("id")) }
@@ -98,6 +113,7 @@ class PlaybackService : MediaSessionService() {
             }
             override fun onPlaybackStateChanged(state: Int) {
                 waitingSince = 0
+                if (state == Player.STATE_READY && normalizationEnabled) current()?.let { loudness.prepare(it) }
                 if (state == Player.STATE_BUFFERING) coverage.interrupt()
                 if (state == Player.STATE_ENDED && !changing) {
                     finishCoverage(false)
@@ -113,17 +129,18 @@ class PlaybackService : MediaSessionService() {
                 if (!changing) publish()
             }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                if (!playWhenReady) { coverage.interrupt(); continuationWaiting = false }
+                if (!playWhenReady) { blend.cancel(); coverage.interrupt(); continuationWaiting = false }
                 waitingSince = 0
                 if (playWhenReady && !changing) fillQueue()
                 if (!changing) { publish(); persist() }
             }
             override fun onPositionDiscontinuity(old: Player.PositionInfo, new: Player.PositionInfo, reason: Int) {
+                if ((old.mediaItem?.mediaId == new.mediaItem?.mediaId && reason == Player.DISCONTINUITY_REASON_SEEK) || !blend.ownsTransition(new.mediaItem?.mediaId)) blend.cancel()
                 if (old.mediaItem?.mediaId == new.mediaItem?.mediaId) coverage.interrupt()
                 lastPosition = new.positionMs; healthyMs = 0; waitingSince = 0
             }
             override fun onPlayerError(problem: PlaybackException) {
-                coverage.interrupt(true); recover()
+                blend.cancel(); coverage.interrupt(true); recover()
             }
         })
         try {
@@ -143,7 +160,8 @@ class PlaybackService : MediaSessionService() {
             .setAlbumTitle(track.optString("album_title"))
         val artwork = track.optString("cover_url")
         if (artwork.startsWith("https://")) metadata.setArtworkUri(Uri.parse(artwork))
-        return MediaItem.Builder().setMediaId(id(entry)).setUri(entry.getString("url")).setMediaMetadata(metadata.build()).build()
+        val offline = OfflineFiles.get(this).source(track.getString("id"), entry.getString("url"))
+        return MediaItem.Builder().setMediaId(id(entry)).setTag(entry.getString("url")).setUri(offline?.let { Uri.fromFile(it) } ?: Uri.parse(entry.getString("url"))).setMediaMetadata(metadata.build()).build()
     }
     private fun validate(entry: JSONObject) {
         require(id(entry).length in 1..160)
@@ -166,8 +184,13 @@ class PlaybackService : MediaSessionService() {
         val structureChanged = queue.map { id(it) to it.getString("url") } != fresh.map { id(it) to it.getString("url") }
         val oldPosition = player.currentPosition
         clientId = newClient; revision = incoming
+        if (newPlayback || structureChanged || data.optBoolean("seek") || !data.optBoolean("playing")) blend.cancel()
         changing = true
         try {
+            normalizationEnabled = data.optBoolean("normalizeAudio")
+            crossfadeSeconds = data.optDouble("crossfadeSeconds",0.0)
+            data.optJSONObject("mixTuning")?.let { mixTuning = JSONObject().put("novelty",it.optInt("novelty",70).coerceIn(0,100)).put("diversity",it.optInt("diversity",50).coerceIn(0,100)) }
+            blend.configure(crossfadeSeconds)
             if (newPlayback) {
                 finishCoverage(manualChange); generation++; continuationAttempt = ""; continuing = false; continuationWaiting = false
                 coverage = ListeningCoverage(); historyRecorded = false; eventId = UUID.randomUUID().toString(); recovery.newQueue()
@@ -182,15 +205,17 @@ class PlaybackService : MediaSessionService() {
                 player.pause(); player.clearMediaItems(); occurrence = ""
             } else {
                 occurrence = id(selected)
-                arrange(selected)
+                arrange(selected,newPlayback)
                 val physicalIndex = (0 until player.mediaItemCount).first { player.getMediaItemAt(it).mediaId == id(selected) }
                 if (newPlayback || data.optBoolean("seek")) {
                     player.seekTo(physicalIndex, (data.optDouble("position", 0.0).coerceAtLeast(0.0) * 1000).toLong())
                     if (!newPlayback || data.optDouble("position", 0.0) > 0) coverage.interrupt()
                     waitingSince = 0
                 } else if (player.currentMediaItemIndex != physicalIndex) player.seekTo(physicalIndex, oldPosition)
-                val volume = data.optDouble("volume", .5).coerceIn(0.0, 1.5)
-                player.volume = (minOf(1.0, volume).pow(2.8) * .5 + maxOf(0.0, volume - 1.0)).toFloat().coerceIn(0f, 1f)
+                userVolume = data.optDouble("volume",.5).coerceIn(0.0,1.5)
+                masterVolume = (minOf(1.0,userVolume).pow(2.8)*.5+maxOf(0.0,userVolume-1.0)).toFloat().coerceIn(0f,1f)
+                applyAudioVolumes()
+                if (normalizationEnabled) selected?.let { loudness.prepare(it) }
                 if (newPlayback || player.playbackState == Player.STATE_IDLE) player.prepare()
                 player.playWhenReady = data.optBoolean("playing")
             }
@@ -200,7 +225,7 @@ class PlaybackService : MediaSessionService() {
         return snapshot(true)
     }
     /** Minimal playlist edits keep the current decoder/position when UI edits upcoming items. */
-    private fun arrange(selected: JSONObject? = current()) {
+    private fun arrange(selected: JSONObject? = current(), refreshCurrent: Boolean = false) {
         val logicalIndex = queue.indexOfFirst { id(it) == selected?.let(::id) }
         val slots = queue.map { val t = it.getJSONObject("track"); QueueSlot(id(it), t.getString("id"), t.optJSONObject("playback_context")?.optString("id").orEmpty(), t.optBoolean("queued_next")) }
         val order = queueOrder(slots, logicalIndex, shuffle, played)
@@ -211,7 +236,9 @@ class PlaybackService : MediaSessionService() {
             else {
                 if (found != target) player.moveMediaItem(found, target)
                 val old = player.getMediaItemAt(target)
-                if (old.localConfiguration?.uri.toString() != entry.getString("url")) player.replaceMediaItem(target, media(entry))
+                val desired = media(entry)
+                val activeUnchanged = old.mediaId == player.currentMediaItem?.mediaId && old.localConfiguration?.tag == entry.getString("url") && !refreshCurrent
+                if (!activeUnchanged && old.localConfiguration?.uri != desired.localConfiguration?.uri) player.replaceMediaItem(target, desired)
             }
         }
         if (player.mediaItemCount > order.size) player.removeMediaItems(order.size, player.mediaItemCount)
@@ -227,13 +254,20 @@ class PlaybackService : MediaSessionService() {
         .put("repeat", when (player.repeatMode) { Player.REPEAT_MODE_ONE -> "one"; Player.REPEAT_MODE_ALL -> "all"; else -> "off" })
         .put("continuing", continuing && continuationWaiting).put("error", error ?: JSONObject.NULL).put("notice", notice ?: JSONObject.NULL)
         .also { if (full) it.put("queue", JSONArray(queue)) }
+    private fun applyAudioVolumes() {
+        trackGain.targetGain = if (normalizationEnabled) loudness.gain(current()) else 1f
+        blend.applyVolumes()
+    }
     private fun publish(full: Boolean = false) { if (!changing) observer?.invoke(snapshot(full)) }
     private fun persist() {
         if (changing) return
         val saved = snapshot(true).put("index", index()).put("playing", false).put("playToken", uiPlayToken)
+            .put("volume",userVolume).put("normalizeAudio",normalizationEnabled).put("crossfadeSeconds",crossfadeSeconds)
+            .put("mixTuning",mixTuning).put("equalizer",equalizerSettings)
         getSharedPreferences("player", MODE_PRIVATE).edit().putString("resume", saved.toString()).apply()
     }
     fun logout() {
+        blend.cancel()
         generation++; queue.clear(); played.clear(); continuationWaiting = false; continuing = false
         changing = true; player.pause(); player.clearMediaItems(); changing = false
         getSharedPreferences("player", MODE_PRIVATE).edit().clear().apply(); publish(true)
@@ -242,6 +276,9 @@ class PlaybackService : MediaSessionService() {
     private fun warmUpcoming() {
         if (!player.playWhenReady || player.repeatMode == Player.REPEAT_MODE_ONE) { audioCache.warm(emptyList()); return }
         val start = player.currentMediaItemIndex + 1
+        if (normalizationEnabled) for (position in start until minOf(start+2,player.mediaItemCount)) {
+            queue.find { id(it) == player.getMediaItemAt(position).mediaId }?.let { loudness.prepare(it) }
+        }
         audioCache.warm((start until minOf(start + 2, player.mediaItemCount)).mapNotNull { player.getMediaItemAt(it).localConfiguration?.uri?.toString() })
     }
     private fun recover() {
@@ -279,7 +316,7 @@ class PlaybackService : MediaSessionService() {
         if (remaining > 8 || continuationAttempt == id(active)) return
         continuationAttempt = id(active); continuationJob = true; continuing = true
         val expected = generation; val vault = TokenVault(this); val token = vault.get()
-        val track = JSONObject(active.getJSONObject("track").toString()); val existing = queue.map { it.getJSONObject("track").getString("id") }
+        val track = JSONObject(active.getJSONObject("track").toString()).put("mix_tuning",mixTuning); val existing = queue.map { it.getJSONObject("track").getString("id") }
         worker.execute {
             val result = try { Continuation(AppHttp(vault)).next(track, existing, token) } catch (_: Exception) { emptyList() }
             handler.post {
@@ -311,6 +348,7 @@ class PlaybackService : MediaSessionService() {
                 if (healthyMs >= 5000) { recovery.healthyProgress(); notice = null }
                 if (!historyRecorded) {
                     historyRecorded = true
+                    current()?.getJSONObject("track")?.optString("id")?.let { OfflineFiles.get(this@PlaybackService).played(it) }
                     current()?.getJSONObject("track")?.let { t -> post("/me/history", JSONObject().put("track_id", t.getString("id"))
                         .put("title", t.optString("title")).put("artist_name", t.optString("artist_name"))
                         .put("cover_url", t.optString("cover_url")).put("duration", t.optInt("duration"))) }
@@ -331,6 +369,6 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(info: MediaSession.ControllerInfo): MediaSession? = session
     override fun onDestroy() {
         persist(); handler.removeCallbacksAndMessages(null); observer = null; instance = null
-        audioCache.close(); worker.shutdownNow(); equalizer.release(); session?.release(); player.release(); super.onDestroy()
+        blend.close(); loudness.close(); audioCache.close(); worker.shutdownNow(); equalizer.release(); session?.release(); player.release(); super.onDestroy()
     }
 }

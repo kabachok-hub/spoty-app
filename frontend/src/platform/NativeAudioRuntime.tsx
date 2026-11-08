@@ -1,3 +1,4 @@
+import { useMixTuning } from '../store/mixTuning';
 import { useEffect } from 'react';
 import { api } from '../api/client';
 import type { Track } from '../api/types';
@@ -56,6 +57,8 @@ export function NativeAudioRuntime() {
         index: state.queueIndex, position: state.seekTarget ?? state.currentTime,
         seek: state.seekTarget !== null, playing: state.isPlaying, playToken: state.playToken,
         repeat: state.repeatMode, shuffle: state.isShuffle, volume: state.isMuted ? 0 : state.volume,
+        normalizeAudio: settings.normalizeAudio, crossfadeSeconds: settings.crossfadeSeconds,
+        mixTuning: { novelty: useMixTuning.getState().novelty, diversity: useMixTuning.getState().diversity },
         equalizer: { enabled: settings.equalizerEnabled, bands: settings.equalizerBands },
       }).catch(() => {
         if (!cancelled && sentRevision === revision) {
@@ -67,8 +70,9 @@ export function NativeAudioRuntime() {
     };
     const unlisten = listenNativeState(apply);
     const unsettings = useSettingsStore.subscribe((state, previous) => {
-      if (state.equalizerEnabled !== previous.equalizerEnabled || state.equalizerBands !== previous.equalizerBands) send();
+      if (state.equalizerEnabled !== previous.equalizerEnabled || state.equalizerBands !== previous.equalizerBands || state.normalizeAudio !== previous.normalizeAudio || state.crossfadeSeconds !== previous.crossfadeSeconds) send();
     });
+    const untuning = useMixTuning.subscribe(send);
     const unsubscribe = usePlayerStore.subscribe((state, previous) => {
       if (state.queue !== previous.queue || state.currentTrack?.id !== previous.currentTrack?.id
         || state.playToken !== previous.playToken || state.isPlaying !== previous.isPlaying
@@ -81,7 +85,7 @@ export function NativeAudioRuntime() {
       ready = true;
       send();
     }).catch(() => { if (!cancelled) usePlayerStore.setState({ playbackError: 'Не удалось подключить плеер. Откройте приложение повторно.' }); });
-    return () => { cancelled = true; unsubscribe(); unsettings(); unlisten(); };
+    return () => { cancelled = true; unsubscribe(); unsettings(); untuning(); unlisten(); };
   }, []);
   return null;
 }

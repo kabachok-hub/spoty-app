@@ -5,6 +5,9 @@ import './index.css';
 import './platform/app-layout.css';
 
 document.documentElement.classList.add('spoty-ui');
+if (import.meta.env.PROD && 'serviceWorker' in navigator && !window.SpotyAndroid && !window.SpotyDesktop) {
+  window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

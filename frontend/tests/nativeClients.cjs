@@ -32,7 +32,7 @@ const flush=()=>new Promise(setImmediate);
   const a={id:'a',title:'A',artist_name:'Artist',duration:120},b={id:'b',title:'B',artist_name:'Artist',duration:130};
   let state={queue:[a,b],queueIndex:0,currentTrack:a,currentTime:0,duration:120,isPlaying:false,playToken:0,seekTarget:null,repeatMode:'off',isShuffle:false,volume:.5,isMuted:false,playedTrackIds:[]};
   const store={getState:()=>state,setState:patch=>{const before=state;state={...state,...patch};for(const fn of subscribers)fn(state,before);},subscribe:fn=>{subscribers.add(fn);return()=>subscribers.delete(fn);}};
-  const runtime=load('src/platform/NativeAudioRuntime.tsx',{'react':{useEffect:fn=>effect=fn},'../api/client':{api:{getStreamUrl:id=>'https://audio/'+id}},'../store/playerStore':{usePlayerStore:store},'../store/settingsStore':{useSettingsStore:{getState:()=>({equalizerEnabled:false,equalizerBands:[0,0,0,0,0]}),subscribe:()=>()=>{}}},'./nativeBridge':{
+  const runtime=load('src/platform/NativeAudioRuntime.tsx',{'../store/mixTuning':{useMixTuning:{getState:()=>({novelty:70,diversity:50}),subscribe:()=>()=>{}}},'react':{useEffect:fn=>effect=fn},'../api/client':{api:{getStreamUrl:id=>'https://audio/'+id}},'../store/playerStore':{usePlayerStore:store},'../store/settingsStore':{useSettingsStore:{getState:()=>({equalizerEnabled:false,equalizerBands:[0,0,0,0,0]}),subscribe:()=>()=>{}}},'./nativeBridge':{
     listenNativeState:fn=>{receive=fn;return()=>{};},nativeCall:(command,data)=>{commands.push({command,data});if(command==='subscribe')return new Promise(r=>subscribeResolve=r);return Promise.resolve({});}
   }});
   runtime.NativeAudioRuntime();cleanup=effect();

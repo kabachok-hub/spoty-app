@@ -1,3 +1,4 @@
+import { OfflineDownloadButton } from '../components/player/OfflinePanel';
 import React, { useEffect, useState } from 'react';
 import { Play, Shuffle, Disc, Calendar, Music2, ListPlus } from 'lucide-react';
 import { Album, Track } from '../api/types';
@@ -271,6 +272,7 @@ export const AlbumPage: React.FC<AlbumPageProps> = ({ albumId, onBack }) => {
         </div>
       </div>
 
+      <OfflineDownloadButton tracks={tracks} />
       {/* Track List */}
       <div className="p-4 max-w-2xl mx-auto">
         {tracks.length === 0 ? (

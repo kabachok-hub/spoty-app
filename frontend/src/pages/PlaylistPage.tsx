@@ -1,3 +1,4 @@
+import { OfflineDownloadButton } from '../components/player/OfflinePanel';
 import { useSettingsStore } from '../store/settingsStore';
 import React, { useEffect, useState } from 'react';
 import { Play, Shuffle, Heart, Music, Trash2, Clock } from 'lucide-react';
@@ -255,6 +256,7 @@ export const PlaylistPage: React.FC<PlaylistPageProps> = ({
         )}
       </div>
 
+      <OfflineDownloadButton tracks={tracks} />
       {/* Tracklist */}
       <div className="px-4 mt-2">
         {tracks.length === 0 ? (
