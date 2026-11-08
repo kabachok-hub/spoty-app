@@ -2,6 +2,7 @@ const { app, BaseWindow, WebContentsView, ipcMain, protocol, net, shell, safeSto
 const fs = require('node:fs'), path = require('node:path'), { pathToFileURL } = require('node:url');
 const { assetPath, externalUrl, request, account } = require('./security.cjs');
 const { contentBounds, resizeBounds, EDGES } = require('./windowFrame.cjs');
+const { createUpdater } = require('./updater.cjs');
 const root = path.join(__dirname, 'renderer'), server = require('./server-config.json').apiOrigin;
 let window, page, chrome, tray, quitting = false, drag = null;
 protocol.registerSchemesAsPrivileged([{ scheme: 'spoty', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
@@ -11,6 +12,7 @@ else {
     app.on('second-instance', () => { window?.show(); window?.focus(); });
     app.whenReady().then(() => {
         nativeTheme.themeSource = 'dark';
+        const updater = createUpdater({ directory: path.join(app.getPath('userData'), 'updates'), version: app.getVersion(), fetch: (...args) => net.fetch(...args), launch: file => shell.openPath(file), quit: () => app.quit() });
         protocol.handle('spoty', req => {
             const url = new URL(req.url);
             if (url.host !== 'app' || !['GET', 'HEAD'].includes(req.method))
@@ -112,6 +114,9 @@ else {
             } };
             let result = {};
             switch (message.command) {
+                case 'updateStart': result = updater.start(message.data?.version); break;
+                case 'updateStatus': result = updater.status(); break;
+                case 'updateInstall': return updater.install().then(result => ({ id: message.id, result }));
                 case 'vaultGet':
                     result = { token: read() };
                     break;

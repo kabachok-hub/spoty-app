@@ -1,15 +1,15 @@
 {
   "name": "spoty-desktop",
   "productName": "Spoty",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Spoty for Windows",
   "private": true,
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/*.test.cjs",
-    "package": "electron-packager . Spoty --platform=win32 --arch=x64 --out=releases/0.2.5 --asar --icon=icon.ico --ignore=/tests --ignore=/dist --ignore=/releases --ignore=/installers --ignore=/installer.json",
-    "installer": "electron-builder --config installer.json --prepackaged releases/0.2.5/Spoty-win32-x64 --win nsis --x64 --publish never"
+    "package": "electron-packager . Spoty --platform=win32 --arch=x64 --out=releases/0.2.6 --asar --icon=icon.ico --ignore=/tests --ignore=/dist --ignore=/releases --ignore=/installers --ignore=/installer.json",
+    "installer": "electron-builder --config installer.json --prepackaged releases/0.2.6/Spoty-win32-x64 --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Download } from 'lucide-react';
 import { isNativeClient, isHostHidden } from '../../platform/nativeBridge';
 import { useAppUpdates, openAppUpdate } from '../../platform/appUpdates';
+import { useSettingsStore } from '../../store/settingsStore';
 
 export function AppUpdateButton() {
   const release = useAppUpdates(s => s.release), check = useAppUpdates(s => s.check);
@@ -14,7 +15,7 @@ export function AppUpdateButton() {
     return () => { clearTimeout(startup); clearInterval(interval); document.removeEventListener('visibilitychange', visible); window.removeEventListener('spoty-host-visibility', visible); };
   }, [check]);
   if (!isNativeClient() || !release) return null;
-  return <button className="spoty-update-button" title={`Доступна версия ${release.version}. Скачать обновление`} aria-label={`Скачать обновление ${release.version}`} onClick={() => void openAppUpdate().catch(() => {})}>
+  return <button className="spoty-update-button" title={`Доступна версия ${release.version}. Скачать обновление`} aria-label={`Скачать обновление ${release.version}`} onClick={() => { useSettingsStore.getState().setSettingsOpen(true); window.dispatchEvent(new Event('spoty-open-updates')); }}>
     <Download size={18} /><span className="hidden lg:inline">Обновить</span><i aria-hidden="true" />
   </button>;
 }

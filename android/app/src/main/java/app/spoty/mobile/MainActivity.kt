@@ -34,6 +34,7 @@ import java.util.concurrent.Executor
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
+    private val updater by lazy { AppUpdater(this) }
     private lateinit var web: WebView
     private var connection: ListenableFuture<MediaController>? = null
     private var stream: JavaScriptReplyProxy? = null
@@ -122,6 +123,9 @@ class MainActivity : ComponentActivity() {
                 val data = request.optJSONObject("data") ?: JSONObject()
                 val vault = TokenVault(this)
                 when (request.getString("command")) {
+                    "updateStart" -> respond(updater.start(data.getString("version")))
+                    "updateStatus" -> respond(updater.status())
+                    "updateInstall" -> respond(updater.install())
                     "vaultGet" -> respond(JSONObject().put("token", vault.get() ?: JSONObject.NULL))
                     "vaultSet" -> {
                         val previous = vault.get(); val token = data.getString("token")

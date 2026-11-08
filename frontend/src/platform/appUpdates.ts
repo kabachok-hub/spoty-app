@@ -25,7 +25,30 @@ export const useAppUpdates = create<UpdateState>((set, get) => ({
     finally { clearTimeout(timer); }
   },
 }));
+type Transfer = { phase: 'idle' | 'downloading' | 'downloaded' | 'installing' | 'error'; progress: number; permissionRequired?: boolean };
+export const useUpdateTransfer = create<Transfer>(() => ({ phase: 'idle', progress: 0 }));
+let poll: ReturnType<typeof setTimeout> | undefined;
+async function refreshTransfer() {
+  try {
+    const state = await nativeCall<Transfer>('updateStatus');
+    useUpdateTransfer.setState(state);
+    if (state.phase === 'downloading') poll = setTimeout(() => void refreshTransfer(), 700);
+  } catch { useUpdateTransfer.setState({ phase: 'error', progress: 0 }); }
+}
 export async function openAppUpdate() {
-  const release = useAppUpdates.getState().release;
-  if (release) await nativeCall('openExternal', { url: release.url });
+  if (useUpdateTransfer.getState().phase === 'downloading') return;
+  clearTimeout(poll);
+  try {
+    if (useUpdateTransfer.getState().phase === 'downloaded') {
+      useUpdateTransfer.setState({ phase: 'installing', progress: 100, permissionRequired: false });
+      const state = await nativeCall<Transfer>('updateInstall');
+      useUpdateTransfer.setState(state);
+    } else {
+      const release = useAppUpdates.getState().release;
+      if (!release) return;
+      useUpdateTransfer.setState({ phase: 'downloading', progress: 0, permissionRequired: false });
+      await nativeCall('updateStart', { version: release.version });
+      await refreshTransfer();
+    }
+  } catch { useUpdateTransfer.setState({ phase: 'error', progress: 0 }); }
 }

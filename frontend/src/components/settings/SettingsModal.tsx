@@ -201,6 +201,11 @@ export const SettingsModal: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  useEffect(() => {
+    const showUpdates = () => setActiveTab('general');
+    window.addEventListener('spoty-open-updates', showUpdates);
+    return () => window.removeEventListener('spoty-open-updates', showUpdates);
+  }, []);
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
   const openStats = useNavigationStore((state) => state.openStats);
   const crossfadeSeconds = useSettingsStore((state) => state.crossfadeSeconds);

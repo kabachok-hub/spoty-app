@@ -11,10 +11,10 @@ for(const url of ['https://evil.test/Spoty-Setup.exe','http://github.com/kabacho
 }
 (async()=>{
  let state,calls=[],opened=[],fail=false,native=true,resolve;
- const store=load('src/platform/appUpdates.ts',{'zustand':{create:init=>{const set=patch=>Object.assign(state,patch);state=init(set,()=>state);return{getState:()=>state};}},'./nativeBridge':{isNativeAndroid:()=>false,isNativeClient:()=>native,nativeCall:async(...args)=>opened.push(args)},'./releases':core},{fetch:async(url,options)=>{calls.push(options);if(fail)throw Error('offline');return{ok:true,text:async()=>JSON.stringify([older])};}});
+ const store=load('src/platform/appUpdates.ts',{'zustand':{create:init=>{let value;const set=patch=>Object.assign(value,patch);value=init(set,()=>value);if(value.check)state=value;return{getState:()=>value,setState:set};}},'./nativeBridge':{isNativeAndroid:()=>false,isNativeClient:()=>native,nativeCall:async(...args)=>{opened.push(args);return{phase:'downloaded',progress:100}}},'./releases':core},{fetch:async(url,options)=>{calls.push(options);if(fail)throw Error('offline');return{ok:true,text:async()=>JSON.stringify([older])};}});
  await state.check();assert.equal(state.release.version,'0.2.5');assert.equal(calls[0].credentials,'omit');assert.equal(calls[0].referrerPolicy,'no-referrer');assert.equal(Object.keys(calls[0].headers).length,1);
  await state.check();assert.equal(calls.length,1);await state.check(true);assert.equal(calls.length,2);
- await store.openAppUpdate();assert.equal(opened[0][0],'openExternal');assert.equal(opened[0][1].url,older.assets[0].browser_download_url);
+ await store.openAppUpdate();assert.equal(opened[0][0],'updateStart');assert.equal(opened[0][1].version,'0.2.5');assert.equal(store.useUpdateTransfer.getState().phase,'downloaded');await store.openAppUpdate();assert.equal(opened.at(-1)[0],'updateInstall');
  fail=true;await state.check(true);assert.equal(state.status,'error');assert.equal(state.release.version,'0.2.5');native=false;await state.check(true);assert.equal(calls.length,3);
- console.log('App updates passed: semantic versions, platform assets, trusted URLs, drafts, credential-free requests, throttling, retry and browser download.');
+ console.log('App updates passed: semantic versions, platform assets, trusted URLs, drafts, credential-free requests, throttling, retry and native download and explicit installation.');
 })().catch(e=>{console.error(e);process.exitCode=1});

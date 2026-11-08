@@ -16,7 +16,7 @@ function externalUrl(value) {
 function request(raw) {
   if (typeof raw !== 'string' || raw.length > 16384) throw Error('Invalid request');
   const message = JSON.parse(raw);
-  if (!Number.isSafeInteger(message.id) || !['vaultGet', 'vaultSet', 'vaultClear', 'openExternal'].includes(message.command)) throw Error('Invalid command');
+  if (!Number.isSafeInteger(message.id) || !['vaultGet', 'vaultSet', 'vaultClear', 'openExternal', 'updateStart', 'updateStatus', 'updateInstall'].includes(message.command)) throw Error('Invalid command');
   return message;
 }
 function account(token) {
