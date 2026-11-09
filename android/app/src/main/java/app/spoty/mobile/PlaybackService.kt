@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -140,7 +141,10 @@ class PlaybackService : MediaSessionService() {
                 lastPosition = new.positionMs; healthyMs = 0; waitingSince = 0
             }
             override fun onPlayerError(problem: PlaybackException) {
-                blend.cancel(); coverage.interrupt(true); recover()
+                // Do not log exception messages/URLs: only diagnostic codes and exception classes.
+                val causes = generateSequence<Throwable>(problem) { it.cause }.take(6).joinToString(" > ") { it.javaClass.simpleName }
+                Log.e("SpotyPlayback", "${problem.errorCodeName}: $causes")
+                blend.cancel(); coverage.interrupt(true); recover(problem)
             }
         })
         try {
@@ -193,7 +197,9 @@ class PlaybackService : MediaSessionService() {
             blend.configure(crossfadeSeconds)
             if (newPlayback) {
                 finishCoverage(manualChange); generation++; continuationAttempt = ""; continuing = false; continuationWaiting = false
-                coverage = ListeningCoverage(); historyRecorded = false; eventId = UUID.randomUUID().toString(); recovery.newQueue()
+                coverage = ListeningCoverage(); historyRecorded = false; eventId = UUID.randomUUID().toString()
+                // Automatic transitions and queue resync must retain the consecutive-failure budget.
+                if (token != uiPlayToken || queue.isEmpty()) recovery.newQueue()
                 coverageDuration = selected?.getJSONObject("track")?.optDouble("duration", 0.0) ?: 0.0
                 played.clear(); selected?.getJSONObject("track")?.let { played.add(it.getString("id")) }
             } else if (structureChanged) { generation++; continuationAttempt = "" }
@@ -281,10 +287,11 @@ class PlaybackService : MediaSessionService() {
         }
         audioCache.warm((start until minOf(start + 2, player.mediaItemCount)).mapNotNull { player.getMediaItemAt(it).localConfiguration?.uri?.toString() })
     }
-    private fun recover() {
+    private fun recover(problem: PlaybackException? = null) {
         if (!player.playWhenReady || current() == null) return
         val online = (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetwork != null
-        val decision = recovery.failed(player.currentMediaItem!!.mediaId, player.hasNextMediaItem(), player.repeatMode == Player.REPEAT_MODE_ONE, !online)
+        val deviceFailure = problem != null && (problem.errorCode < 2000 || problem.errorCode in 4000..5999)
+        val decision = recovery.failed(player.currentMediaItem!!.mediaId, player.hasNextMediaItem(), player.repeatMode == Player.REPEAT_MODE_ONE, !online, deviceFailure)
         coverage.interrupt(true); waitingSince = 0
         when (decision) {
             RecoveryPolicy.Decision.RETRY -> {
@@ -293,7 +300,13 @@ class PlaybackService : MediaSessionService() {
                 player.stop(); player.seekTo(position); player.prepare()
             }
             RecoveryPolicy.Decision.NEXT -> { notice = "Запись недоступна. Включаем следующую."; technicalTransition = true; player.seekToNextMediaItem(); player.prepare() }
-            RecoveryPolicy.Decision.STOP -> { player.pause(); error = "Не удалось загрузить запись. Проверьте подключение или выберите другой трек."; player.stop() }
+            RecoveryPolicy.Decision.STOP -> {
+                notice = null
+                player.pause()
+                error = if (deviceFailure) "Не удалось запустить звук. Попробуйте ещё раз. [${problem!!.errorCodeName}]"
+                    else "Не удалось загрузить запись. Проверьте подключение или выберите другой трек." + (problem?.let { " [${it.errorCodeName}]" } ?: "")
+                player.stop()
+            }
         }
         publish(true)
     }

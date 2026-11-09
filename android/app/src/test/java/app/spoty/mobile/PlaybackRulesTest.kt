@@ -3,6 +3,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlaybackRulesTest {
+    @Test fun changingOccurrenceIdsCannotCreateAnEndlessRetryLoop() {
+        val r = RecoveryPolicy()
+        for (i in 1..5) assertEquals(RecoveryPolicy.Decision.RETRY, r.failed("fresh-$i", true, false, false))
+        assertEquals(RecoveryPolicy.Decision.STOP, r.failed("fresh-6", true, false, false))
+        r.healthyProgress()
+        assertEquals(RecoveryPolicy.Decision.RETRY, r.failed("fresh-7", true, false, false))
+    }
+    @Test fun audioDeviceFailureNeverSkipsTheQueue() {
+        val r = RecoveryPolicy()
+        assertEquals(RecoveryPolicy.Decision.STOP, r.failed("a", true, false, false, true))
+        assertEquals(RecoveryPolicy.Decision.RETRY, r.failed("a", true, false, false))
+    }
     @Test fun unavailableQueueHasFiniteBudget() {
         val r = RecoveryPolicy()
         for (i in 1..3) {

@@ -26,6 +26,9 @@ class TrackGainProcessor : BaseAudioProcessor() {
     }
     override fun onFlush() { gain = targetGain }
     override fun queueInput(input: ByteBuffer) {
+        // Media3 drains the pipeline with EMPTY_BUFFER before the first decoded samples.
+        // BaseAudioProcessor initially owns that same singleton, so copying it into itself throws.
+        if (!input.hasRemaining()) return
         val output = replaceOutputBuffer(input.remaining())
         val target = targetGain.coerceIn(.05f, 2f)
         if (target == 1f && gain == 1f) output.put(input)

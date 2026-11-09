@@ -2,12 +2,28 @@ package app.spoty.mobile
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
+import androidx.media3.common.audio.AudioProcessor
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class TrackGainTest {
+    @Test fun emptyPipelineInputBeforeFirstPcmDoesNotCopyTheSharedEmptyBufferIntoItself() {
+        val processor = TrackGainProcessor()
+        processor.configure(AudioFormat(48000,2,C.ENCODING_PCM_16BIT)); processor.flush()
+        processor.queueInput(AudioProcessor.EMPTY_BUFFER)
+        assertFalse(processor.output.hasRemaining())
+        val input = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
+        input.putShort(1234); input.putShort(-1234); input.flip()
+        processor.queueInput(input)
+        val output = processor.output
+        assertEquals(1234.toShort(),output.short); assertEquals((-1234).toShort(),output.short)
+        processor.queueInput(AudioProcessor.EMPTY_BUFFER)
+        assertFalse(processor.output.hasRemaining())
+        processor.queueEndOfStream()
+        assertTrue(processor.isEnded)
+    }
     private fun process(gain: Float, values: List<Short>): List<Short> {
         val processor = TrackGainProcessor(); processor.targetGain = gain
         processor.configure(AudioFormat(48000,2,C.ENCODING_PCM_16BIT)); processor.flush()
