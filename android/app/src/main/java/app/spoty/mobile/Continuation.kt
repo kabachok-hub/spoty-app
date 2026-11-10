@@ -19,26 +19,34 @@ class Continuation(private val api: AppHttp) {
             .mapNotNull { array.optJSONObject(it) }.filter { it.optString("id") !in excluded && it.optDouble("duration") >= 45 }
             .distinctBy { it.optString("id") }
         if (context?.optString("id")?.startsWith("autoplay-radio-") != true) {
-            try {
-                val home = JSONObject(api.request("/recommendations/home", expectedToken = token))
-                val candidates = mutableListOf<JSONObject>()
-                context?.optJSONObject("nextMix")?.let { candidates.add(it) }
-                for (key in listOf("daily_mixes", "best_mixes", "recommended_stations")) {
-                    val rows = home.optJSONArray(key) ?: continue
-                    for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { candidates.add(it) }
-                }
-                for (mix in candidates.filter { it.optString("query").isNotBlank() && it.optString("id") !in visited }.distinctBy { it.optString("id") }.take(3)) {
-                    visited.add(mix.optString("id"))
-                    try {
-                        val rows = fresh(JSONArray(api.request("/recommendations/mix/tracks?q=${encode(mix.getString("query"))}&limit=50&mix_id=${encode(mix.getString("id"))}$tuningParams", expectedToken = token)))
-                        if (rows.isNotEmpty()) {
-                            val origin = JSONObject(mix.toString()).put("visitedMixIds", JSONArray(visited.toList())).put("type", "mix")
-                            return rows.map { it.put("recommended_automatically", true).put("playback_context", origin) }
-                        }
-                    } catch (_: Exception) { /* A failed context cannot block the radio fallback. */ }
-                }
-            } catch (_: Exception) { /* Unavailable home does not prevent radio continuation. */ }
+            val candidates = mutableListOf<JSONObject>()
+            context?.optJSONObject("nextMix")?.let { candidates.add(it) }
+            // A failed Home refresh must not discard the next card already saved in the queue.
+            val home = try { JSONObject(api.request("/recommendations/home", expectedToken = token)) } catch (_: Exception) { JSONObject() }
+            val feed = mutableListOf<JSONObject>()
+            for (key in listOf("daily_mixes", "best_mixes", "recommended_stations")) {
+                val rows = home.optJSONArray(key) ?: continue
+                for (i in 0 until rows.length()) rows.optJSONObject(i)?.let { feed.add(it) }
+            }
+            candidates.addAll(feed)
+            val preferred = context?.optJSONObject("nextMix")?.optString("id")
+            val order = mixSequence(feed.map { it.optString("id") }, context?.optString("id"), preferred, visited)
+            for (mixId in order.take(3)) {
+                val mix = candidates.find { it.optString("id") == mixId && it.optString("query").isNotBlank() } ?: continue
+                visited.add(mixId)
+                try {
+                    val rows = fresh(JSONArray(api.request("/recommendations/mix/tracks?q=${encode(mix.getString("query"))}&limit=50&mix_id=${encode(mixId)}$tuningParams", expectedToken = token)))
+                    if (rows.isNotEmpty()) {
+                        val origin = JSONObject(mix.toString()).put("visitedMixIds", JSONArray(visited.toList()))
+                        val next = order.firstOrNull { it !in visited }?.let { id -> candidates.find { it.optString("id") == id } }
+                        origin.put("nextMix", next ?: JSONObject.NULL)
+                        return rows.map { it.put("recommended_automatically", true).put("playback_context", origin) }
+                    }
+                } catch (_: Exception) { /* Try the next real feed card, never substitute track radio. */ }
+            }
+            if (context != null) return emptyList()
         }
+
         val artist = track.optString("artist_name")
         val rows = fresh(JSONArray(api.request("/tracks/${encode(track.getString("id"))}/similar?artist_name=${encode(artist)}&title=${encode(track.optString("title"))}&limit=40&exclude=${encode(existing.takeLast(300).joinToString(","))}", expectedToken = token)))
         val origin = JSONObject().put("id", "autoplay-radio-${track.optString("artist_id", artist)}")

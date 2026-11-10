@@ -1,9 +1,18 @@
 {
   "appId": "app.spoty.desktop",
   "productName": "Spoty",
-  "directories": { "output": "installers/0.2.8" },
+  "directories": {
+    "output": "installers/0.2.9"
+  },
   "win": {
-    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
     "icon": "icon.ico",
     "signAndEditExecutable": false
   },
@@ -19,6 +28,9 @@
     "runAfterFinish": true,
     "deleteAppDataOnUninstall": false,
     "differentialPackage": false,
-    "installerLanguages": ["ru_RU", "en_US"]
+    "installerLanguages": [
+      "ru_RU",
+      "en_US"
+    ]
   }
 }
