@@ -74,6 +74,14 @@ export const FullscreenPlayer: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<PlayerTab>('player');
   const canvas = useTrackCanvas(currentTrack?.id, isFullscreen && activeTab !== 'lyrics');
+  const [narrow, setNarrow] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const changed = () => setNarrow(media.matches);
+    changed(); media.addEventListener('change', changed);
+    return () => media.removeEventListener('change', changed);
+  }, []);
+  const mobileCanvas = !!canvas && narrow && activeTab === 'player';
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -245,15 +253,16 @@ export const FullscreenPlayer: React.FC = () => {
   return (
     <>
       <div
-        className={`fixed inset-0 z-50 flex flex-col text-white p-5 pb-6 select-none animate-slide-up safe-bottom safe-top overflow-y-auto overscroll-contain touch-pan-y no-scrollbar ${
+        className={`fixed inset-0 z-50 isolate flex flex-col text-white p-5 pb-6 select-none animate-slide-up safe-bottom safe-top overflow-y-auto overscroll-contain touch-pan-y no-scrollbar ${
           bgType !== 'none'
             ? 'bg-black/80 backdrop-blur-2xl'
             : 'bg-[#121212]'
         }`}
       >
+        {mobileCanvas && <TrackCanvas src={canvas!} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying} fullscreen backdrop />}
 
         {/* ── Top Header ── */}
-        <div className="flex items-center justify-between flex-shrink-0">
+        <div className="relative z-10 flex items-center justify-between flex-shrink-0">
           <button
             onClick={handleClose}
             className="p-2 -ml-2 text-zinc-300 hover:text-white transition"
@@ -372,7 +381,7 @@ export const FullscreenPlayer: React.FC = () => {
         </div>
 
         {/* ── Album Artwork ── */}
-        {activeTab!=='lyrics' && <div className="my-3 flex items-center justify-center flex-shrink-0">
+        {activeTab!=='lyrics' && !mobileCanvas && <div className="my-3 flex items-center justify-center flex-shrink-0">
           {canvas ? <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying} fullscreen /> : playerStyle === 'vinyl' ? (
             /* VINYL RECORD MODE (Dootify Vinyl Style) */
             <div className="relative aspect-square w-full max-w-[260px] sm:max-w-[310px] max-h-[34vh] flex items-center justify-center">
@@ -420,7 +429,7 @@ export const FullscreenPlayer: React.FC = () => {
         </div>}
 
         {/* ── Lyrics / Player / Similar Tab Bar ── */}
-        <div className="flex gap-1 bg-white/6 rounded-xl p-1 mb-3 flex-shrink-0">
+        <div className="relative z-10 flex gap-1 bg-white/6 rounded-xl p-1 mb-3 flex-shrink-0">
           <button
             onClick={() => { haptic.selection(); setActiveTab('player'); }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition ${
@@ -458,7 +467,7 @@ export const FullscreenPlayer: React.FC = () => {
 
         {/* ── Track Meta & Controls (Player Tab) ── */}
         {activeTab === 'player' && (
-          <div className="space-y-3 flex-1">
+          <div className={`relative z-10 space-y-3 flex-1 ${mobileCanvas ? 'flex flex-col justify-end' : ''}`}>
             {/* Title & Like */}
             <div className={`grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-3 ${
               titleAlign === 'center' ? 'text-center' : titleAlign === 'right' ? 'text-right' : 'text-left'
