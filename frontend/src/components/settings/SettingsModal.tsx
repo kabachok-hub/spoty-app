@@ -1,4 +1,5 @@
 import { SoundOptions } from './SoundOptions';
+import { CanvasSettings } from './CanvasSettings';
 import { GeneralSettings } from './GeneralSettings';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -1807,6 +1808,7 @@ export const SettingsModal: React.FC = () => {
              ══════════════════════════════════════════════════════════════════ */}
           {activeTab === 'player' && (
             <div className="space-y-6">
+              <CanvasSettings />
               {/* Player Visual Style */}
               <div>
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">

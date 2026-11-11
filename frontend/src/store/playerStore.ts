@@ -45,6 +45,7 @@ export function ensureAutoplay(): Promise<void> {
 export type RepeatMode = 'off' | 'all' | 'one';
 
 export interface ActiveMixContext {
+  ownerId?: number;
   id: string;
   title: string;
   title_en?: string;
@@ -63,6 +64,13 @@ export interface ActiveMixContext {
     banner_color?: string;
     banner_text?: string;
   } | null;
+}
+
+export function tracksForPlayingMix(queue: Track[], active: ActiveMixContext | null,
+  mix: { id: string; query: string }, ownerId?: number): Track[] {
+  if (!ownerId || active?.ownerId !== ownerId || active.id !== mix.id || active.query !== mix.query) return [];
+  return queue.filter(track => track.playback_context?.id === mix.id
+    && track.playback_context.query === mix.query && !track.queued_next);
 }
 
 interface PlayerState {
@@ -192,6 +200,7 @@ const savePlayerState = (state: PlayerState) => {
 
 const savedState = loadSavedState();
 let lastProgressSaveTs = 0;
+let volumeSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   currentTrack: savedState.currentTrack || null,
@@ -467,6 +476,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       currentTrack: track ? { ...track } : null,
       activeMix: nextMixContext,
       isPlaying: track !== null,
+      activeContextUri: nextMixContext?.id || null,
       currentTime: 0,
       seekTarget: 0,
       duration: track?.duration || 0,
@@ -561,12 +571,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setVolume: (vol: number) => {
-    const normalized = Math.max(0, Math.min(1.5, Math.round(vol * 100) / 100));
-    try {
-      localStorage.setItem('spotify_volume', String(normalized));
-    } catch (e) {}
+    if (!Number.isFinite(vol)) return;
+    const normalized = Math.max(0, Math.min(1.5, Math.round(vol * 1000) / 1000));
+    if (normalized === get().volume && get().isMuted === (normalized === 0)) return;
     set({ volume: normalized, isMuted: normalized === 0 });
-    savePlayerState(get());
+    // Audio follows each frame; serializing the whole queue waits until dragging stops.
+    clearTimeout(volumeSaveTimer);
+    volumeSaveTimer = setTimeout(() => savePlayerState(get()), 180);
   },
 
   toggleMute: () => {

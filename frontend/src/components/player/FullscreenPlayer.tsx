@@ -1,4 +1,6 @@
+import { ArtistNames } from './ArtistNames';
 import { trackShareUrl } from '../../platform/publicSite';
+import { TrackCanvas, useTrackCanvas } from './TrackCanvas';
 import { refreshRecording } from '../../hooks/refreshRecording';
 import { isNativeClient, nativeCall } from '../../platform/nativeBridge';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -71,6 +73,7 @@ export const FullscreenPlayer: React.FC = () => {
   const { isActive: isTimerActive, timeLeft, formatTime } = useSleepTimer();
 
   const [activeTab, setActiveTab] = useState<PlayerTab>('player');
+  const canvas = useTrackCanvas(currentTrack?.id, isFullscreen && activeTab !== 'lyrics');
   const [sleepTimerOpen, setSleepTimerOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -370,7 +373,7 @@ export const FullscreenPlayer: React.FC = () => {
 
         {/* ── Album Artwork ── */}
         {activeTab!=='lyrics' && <div className="my-3 flex items-center justify-center flex-shrink-0">
-          {playerStyle === 'vinyl' ? (
+          {canvas ? <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying} fullscreen /> : playerStyle === 'vinyl' ? (
             /* VINYL RECORD MODE (Dootify Vinyl Style) */
             <div className="relative aspect-square w-full max-w-[260px] sm:max-w-[310px] max-h-[34vh] flex items-center justify-center">
               {/* Spinning Vinyl Disc */}
@@ -475,12 +478,9 @@ export const FullscreenPlayer: React.FC = () => {
                       className="w-4 h-4 rounded-full object-cover flex-shrink-0"
                     />
                   )}
-                  <button
-                    onClick={handleArtistClick}
-                    className="text-base text-zinc-400 hover:text-[var(--accent-color,#1DB954)] hover:underline truncate transition cursor-pointer active:scale-95"
-                  >
-                    {currentTrack.artist_name}
-                  </button>
+                  <span className="text-base text-zinc-400 truncate transition active:scale-95">
+                    <ArtistNames track={currentTrack} />
+                  </span>
                 </div>
               </div>
 
@@ -596,7 +596,7 @@ export const FullscreenPlayer: React.FC = () => {
             <div className="mb-3 flex items-center gap-3 flex-shrink-0">
               <img src={currentTrack.cover_url || '/placeholder.png'} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0"/>
               <div className="min-w-0 flex-1"><h2 className="text-lg font-extrabold text-white truncate">{currentTrack.title}</h2>
-              <p className="text-sm text-zinc-400 truncate">{currentTrack.artist_name}</p></div>
+              <p className="text-sm text-zinc-400 truncate"><ArtistNames track={currentTrack} /></p></div>
               <button onClick={togglePlay} className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center shrink-0" aria-label={isPlaying?'Пауза':'Продолжить воспроизведение'}>{isPlaying?<Pause size={20}/>:<Play size={20}/>}</button>
             </div>
             <LyricsPanel
@@ -650,7 +650,7 @@ export const FullscreenPlayer: React.FC = () => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-white truncate">{track.title}</div>
-                      <div className="text-xs text-zinc-400 truncate">{track.artist_name}</div>
+                      <div className="text-xs text-zinc-400 truncate"><ArtistNames track={track} /></div>
                     </div>
                     <button
                       onClick={(e) => {

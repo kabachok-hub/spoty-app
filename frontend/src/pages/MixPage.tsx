@@ -1,11 +1,11 @@
 import { OfflineDownloadButton } from '../components/player/OfflinePanel';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Play, Shuffle, Sparkles, Disc, ChevronRight, ListPlus, Compass, RefreshCw } from 'lucide-react';
 import { Track } from '../api/types';
 import { api, apiClient } from '../api/client';
 import { TrackRow } from '../components/cards/TrackRow';
 import { Skeleton } from '../components/ui/Skeleton';
-import { usePlayerStore, ActiveMixContext } from '../store/playerStore';
+import { usePlayerStore, ActiveMixContext, tracksForPlayingMix } from '../store/playerStore';
 import { useUserStore } from '../store/userStore';
 import { isHiddenTrack } from '../store/recommendationPreferences';
 import { useSettingsStore } from '../store/settingsStore';
@@ -29,8 +29,15 @@ export const MixPage: React.FC<MixPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [rawTracks, setTracks] = useState<Track[]>([]);
+  const [showRefreshed, setShowRefreshed] = useState(false);
+  const request = useRef(0);
+  const ownerId = useUserStore(s => s.user?.telegram_id);
+  const queue = usePlayerStore(s => s.queue);
+  const activeMix = usePlayerStore(s => s.activeMix);
+  const playingTracks = tracksForPlayingMix(queue, activeMix, { id: mix.id, query: mix.query || mix.title }, ownerId);
+  const pinned = !showRefreshed && playingTracks.length > 0;
   useUserStore(s => s.dislikes);
-  const tracks = rawTracks.filter(t => !isHiddenTrack(t));
+  const tracks = (pinned ? playingTracks : rawTracks).filter(t => !isHiddenTrack(t));
   const [filterMode, setFilterMode] = useState<'all' | 'familiar' | 'discovery'>('all');
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
@@ -52,6 +59,7 @@ export const MixPage: React.FC<MixPageProps> = ({
   const bannerColor = mix.banner_color || '#1DB954';
 
   const loadMixTracks = async (force = false) => {
+    const ticket = ++request.current;
     if (force) {
       setIsRefreshing(true);
       haptic.impact('medium');
@@ -61,7 +69,9 @@ export const MixPage: React.FC<MixPageProps> = ({
     try {
       const q = mix.query || mix.title;
       const data = await api.getMixTracks(q, 50, force, mix.id);
+      if (ticket !== request.current || useUserStore.getState().user?.telegram_id !== ownerId) return;
       setTracks(data || []);
+      setShowRefreshed(force);
       if (force) {
         haptic.notification('success');
       }
@@ -71,14 +81,20 @@ export const MixPage: React.FC<MixPageProps> = ({
         haptic.notification('error');
       }
     } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+      if (ticket === request.current) {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
+    setTracks([]);
+    setFilterMode('all');
+    setShowRefreshed(false);
     loadMixTracks(false);
-  }, [mix.id, mix.query, mix.title]);
+    return () => { ++request.current; };
+  }, [mix.id, mix.query, mix.title, ownerId]);
 
   const familiarTracks = tracks.filter((t) => t.is_familiar);
   const discoveryTracks = tracks.filter((t) => !t.is_familiar);
@@ -91,6 +107,7 @@ export const MixPage: React.FC<MixPageProps> = ({
       : tracks;
 
   const currentMixContext: ActiveMixContext = {
+    ownerId,
     id: mix.id,
     title: displayTitle,
     title_en: mix.title_en,
@@ -123,12 +140,17 @@ export const MixPage: React.FC<MixPageProps> = ({
     });
   };
 
+  // Opening a mix from any screen counts; Home only moves its card optimistically.
+  useEffect(() => { recordContext(); }, [mix.id, mix.query]);
+
   const handlePlayAll = () => {
     if (displayedTracks.length > 0) {
       haptic.impact('medium');
       recordContext();
       usePlayerStore.getState().setActiveContextUri(mix.id);
       usePlayerStore.getState().setActiveMix(currentMixContext);
+      if (isShuffle) toggleShuffle();
+      setShowRefreshed(false);
       setQueue(displayedTracks, 0, currentMixContext);
     }
   };
@@ -143,6 +165,7 @@ export const MixPage: React.FC<MixPageProps> = ({
       const randIdx = Math.floor(Math.random() * displayedTracks.length);
       usePlayerStore.getState().setActiveContextUri(mix.id);
       usePlayerStore.getState().setActiveMix(currentMixContext);
+      setShowRefreshed(false);
       setQueue(displayedTracks, randIdx, currentMixContext);
     }
   };
@@ -326,9 +349,15 @@ export const MixPage: React.FC<MixPageProps> = ({
       )}
 
       <OfflineDownloadButton tracks={tracks} />
+      {showRefreshed && playingTracks.length > 0 && (
+        <div className="max-w-2xl mx-auto px-4 mt-3 text-xs text-zinc-300">
+          Состав обновлён. Нажмите «Играть», чтобы запустить его с начала.
+          <button className="ml-2 text-[#1DB954] underline" onClick={() => setShowRefreshed(false)}>Показать играющий микс</button>
+        </div>
+      )}
       {/* Track List (Up to 50 tracks) */}
       <div className="p-4 max-w-2xl mx-auto">
-        {loading ? (
+        {loading && !pinned ? (
           <div className="space-y-3">
             {[...Array(12)].map((_, i) => (
               <div key={i} className="flex items-center gap-3 p-2">
@@ -346,7 +375,7 @@ export const MixPage: React.FC<MixPageProps> = ({
             <p className="text-sm font-semibold">В этой категории пока нет треков</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-1" data-testid="mix-track-list">
             {displayedTracks.map((track, index) => (
               <TrackRow
                 key={`${track.id}-${index}`}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Volume1, Volume2, VolumeX, Minus, Plus } from 'lucide-react';
 import { usePlayerStore } from '../../store/playerStore';
 import { useTelegram } from '../../hooks/useTelegram';
@@ -23,6 +23,19 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
   const setVolume = usePlayerStore((state) => state.setVolume);
   const toggleMute = usePlayerStore((state) => state.toggleMute);
   const { haptic } = useTelegram();
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<{ id: number; left: number; width: number } | null>(null);
+  const frame = useRef<number | null>(null);
+  const pending = useRef<number | null>(null);
+  const flush = () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    if (pending.current !== null) setVolume(pending.current);
+    pending.current = null;
+  };
+  useEffect(() => () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+  }, []);
 
   const currentVolume = isMuted ? 0 : volume;
   const volumePercent = Math.round(currentVolume * 100);
@@ -64,34 +77,30 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation();
-    haptic.selection();
     const target = e.currentTarget;
     const rect = target.getBoundingClientRect();
+    if (rect.width <= 0 || !e.isPrimary || e.button !== 0) return;
+    e.preventDefault();
+    target.focus({ preventScroll: true });
+    target.setPointerCapture(e.pointerId);
+    drag.current = { id: e.pointerId, left: rect.left, width: rect.width };
+    setDragging(true);
+    haptic.selection();
+    updatePointer(e.clientX);
+  };
 
-    const update = (clientX: number) => {
-      const pos = Math.max(0, Math.min(clientX - rect.left, rect.width));
-      const ratio = pos / rect.width;
-      let newVol = Math.round(ratio * MAX_VOLUME * 100) / 100;
-      // Snap to 100% when close
-      if (Math.abs(newVol - 1.0) <= 0.02) {
-        newVol = 1.0;
-      }
-      setVolume(newVol);
-    };
-
-    update(e.clientX);
-
-    const onMove = (moveEvt: PointerEvent) => {
-      update(moveEvt.clientX);
-    };
-
-    const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+  const updatePointer = (clientX: number) => {
+    if (!drag.current) return;
+    pending.current = Math.max(0, Math.min(1, (clientX - drag.current.left) / drag.current.width)) * MAX_VOLUME;
+    if (frame.current === null) frame.current = requestAnimationFrame(flush);
+  };
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== drag.current?.id) return;
+    if (event.type === 'pointerup') updatePointer(event.clientX);
+    flush();
+    drag.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const getVolumeIcon = () => {
@@ -132,10 +141,24 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
         {/* Custom Touch & Drag Spotify Green Slider */}
         <div
           onPointerDown={handlePointerDown}
-          className="relative flex-1 h-8 flex items-center cursor-pointer touch-none group"
+          onPointerMove={event => { if (event.pointerId === drag.current?.id) updatePointer(event.clientX); }}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onLostPointerCapture={endDrag}
+          role="slider" tabIndex={0} aria-label="Громкость" aria-valuemin={0} aria-valuemax={150} aria-valuenow={volumePercent} aria-valuetext={`${volumePercent}%`}
+          onKeyDown={event => {
+            const values: Record<string, number> = { ArrowLeft: currentVolume-.01, ArrowDown: currentVolume-.01, ArrowRight: currentVolume+.01, ArrowUp: currentVolume+.01, PageDown: currentVolume-.1, PageUp: currentVolume+.1, Home: 0, End: MAX_VOLUME };
+            if (event.key in values) { event.preventDefault(); event.stopPropagation(); setVolume(Math.max(0,Math.min(MAX_VOLUME,Math.round(values[event.key]*100)/100))); }
+          }}
+          className="relative min-w-0 flex-1 h-8 flex items-center cursor-pointer touch-none group outline-none focus-visible:ring-2 focus-visible:ring-[#1DB954]/60 rounded-full"
         >
+          <span data-testid="volume-tooltip" aria-hidden="true"
+            className={`absolute bottom-full mb-1 -translate-x-1/2 rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-semibold tabular-nums text-white shadow-lg pointer-events-none ${dragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`}
+            style={{ left: `${fillPercent}%` }}>
+            {volumePercent}%
+          </span>
           {/* Track background */}
-          <div className="w-full h-2 bg-zinc-700/80 rounded-full overflow-hidden relative">
+          <div className="w-full h-1.5 bg-zinc-700/80 rounded-full overflow-hidden relative">
             {/* 100% threshold marker */}
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-white/30 z-10"
@@ -145,7 +168,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
 
             {/* Dynamic Progress Fill */}
             <div
-              className={`h-full transition-[width] duration-75 ${
+              className={`h-full ${
                 isMuted
                   ? 'bg-zinc-500'
                   : currentVolume > 1.0
@@ -158,7 +181,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
 
           {/* Visible Circular Thumb Handle */}
           <div
-            className={`absolute w-4 h-4 bg-white border-2 rounded-full shadow-md pointer-events-none -translate-x-1/2 transition-[left] duration-75 group-hover:scale-110 ${
+            className={`absolute w-3.5 h-3.5 bg-white border-2 rounded-full shadow-md pointer-events-none -translate-x-1/2 ${
               currentVolume > 1.0 ? 'border-amber-300' : 'border-[#1DB954]'
             }`}
             style={{ left: `${fillPercent}%` }}

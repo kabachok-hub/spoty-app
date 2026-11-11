@@ -78,8 +78,12 @@ export const TasteSetup: React.FC = () => {
         const initial = saved.length ? saved : (await api.getCharts()).artists;
         let candidates = initial;
         if (saved.length) {
-          const related = await apiClient.get<Artist[]>(`/artists/${encodeURIComponent(saved[0].id)}/related`);
-          candidates = expandArtistFrontier(initial, saved[0], related.data, []);
+          const seeds = saved.slice(0, 3);
+          const batches = await Promise.allSettled(seeds.map(seed => apiClient.get<Artist[]>(`/artists/${encodeURIComponent(seed.id)}/related`)));
+          for (let i = 0; i < seeds.length; i++) {
+            const batch = batches[i];
+            if (batch.status === 'fulfilled') candidates = expandArtistFrontier(candidates, seeds[i], batch.value.data, initial);
+          }
         }
         if (!cancelled) setPool(v => v.length ? v : candidates);
       } catch { if (!cancelled) { loadedUser.current=null; setNotice('Не удалось загрузить рекомендации. Найдите первого артиста через «Поиск».'); } }

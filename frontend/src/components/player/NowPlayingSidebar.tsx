@@ -1,4 +1,6 @@
+import { ArtistNames } from './ArtistNames';
 import { createPortal } from 'react-dom';
+import { TrackCanvas, useTrackCanvas } from './TrackCanvas';
 import { refreshRecording } from '../../hooks/refreshRecording';
 import React, { useState } from 'react';
 import {
@@ -49,6 +51,8 @@ export const NowPlayingSidebar: React.FC = () => {
   const isOpen = usePlayerStore((state) => state.isNowPlayingOpen);
   const setOpen = usePlayerStore((state) => state.setNowPlayingOpen);
   const activeMix = usePlayerStore((state) => state.activeMix);
+  const fullscreen = usePlayerStore(state => state.isFullscreen);
+  const canvas = useTrackCanvas(currentTrack?.id, isOpen && !fullscreen);
   const openArtist = useNavigationStore((state) => state.openArtist);
   const setActiveTabNav = useNavigationStore((state) => state.setActiveTab);
 
@@ -151,7 +155,7 @@ export const NowPlayingSidebar: React.FC = () => {
         ${isOpen ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none'}`}
     >
       {/* ── Top Header ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0 bg-black/20">
+      <div className={`flex items-center justify-between px-4 py-3 flex-shrink-0 ${canvas ? 'absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/75 via-black/30 to-transparent' : 'border-b border-white/10 bg-black/20'}`}>
         <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
           {isPlaying ? (
             <div className="flex items-end gap-0.5 h-3.5 w-3 flex-shrink-0">
@@ -167,7 +171,7 @@ export const NowPlayingSidebar: React.FC = () => {
               {activeMix ? `Микс • ${activeMix.title}` : currentTrack ? 'Сейчас играет' : 'Карточка трека'}
             </span>
             <h2 className="text-xs font-bold text-white truncate mt-0.5">
-              {currentTrack ? currentTrack.title : 'Плеер Spoty'}
+              {currentTrack ? canvas ? <ArtistNames track={currentTrack} /> : currentTrack.title : 'Плеер Spoty'}
             </h2>
           </div>
         </div>
@@ -216,7 +220,14 @@ export const NowPlayingSidebar: React.FC = () => {
         /* Track Loaded Content */
         <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
           {/* Album Artwork: Vinyl Record Mode or Square Cover */}
-          {playerStyle === 'vinyl' ? (
+          {canvas ? <div className="-mx-4 -mt-4" data-testid="canvas-hero">
+            <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying}>
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#141414] via-black/65 to-transparent px-5 pb-5 pt-24">
+                <h1 className="text-[23px] leading-tight font-extrabold text-white break-words line-clamp-2 drop-shadow-sm">{currentTrack.title}</h1>
+                <span className="mt-2 max-w-full text-left text-sm font-medium text-white/85 line-clamp-2"><ArtistNames track={currentTrack} /></span>
+              </div>
+            </TrackCanvas>
+          </div> : playerStyle === 'vinyl' ? (
             <div className="relative aspect-square w-full max-w-[270px] mx-auto flex items-center justify-center my-1 select-none">
               {/* Spinning Vinyl Disc */}
               <div
@@ -264,7 +275,7 @@ export const NowPlayingSidebar: React.FC = () => {
           )}
 
           {/* Track Title, Artist, Avatar, & Actions */}
-          <div className="space-y-3">
+          {!canvas && <div className="space-y-3">
             <div
               className={`flex items-start justify-between gap-3 ${
                 titleAlign === 'center'
@@ -274,7 +285,7 @@ export const NowPlayingSidebar: React.FC = () => {
                   : 'text-left'
               }`}
             >
-              <div className="min-w-0 flex-1">
+              {!canvas && <div className="min-w-0 flex-1">
                 <h1 className="text-lg font-extrabold text-white leading-tight truncate">
                   {currentTrack.title}
                 </h1>
@@ -296,158 +307,16 @@ export const NowPlayingSidebar: React.FC = () => {
                       />
                     </div>
                   )}
-                  <button
-                    onClick={handleArtistClick}
-                    className="text-xs text-zinc-400 hover:text-[#1DB954] hover:underline font-semibold truncate transition block max-w-full"
-                  >
-                    {currentTrack.artist_name}
-                  </button>
+                  <span className="text-xs text-zinc-400 font-semibold truncate transition block max-w-full">
+                    <ArtistNames track={currentTrack} />
+                  </span>
                 </div>
-              </div>
+              </div>}
 
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Like Heart */}
-              <DislikeButton track={currentTrack} />
-              <button
-                onClick={() => {
-                  haptic.notification('success');
-                  toggleLike(currentTrack);
-                }}
-                className="p-1.5 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/10"
-                aria-label="Like"
-              >
-                <Heart
-                  size={20}
-                  className={isLiked ? 'text-[#1DB954] fill-[#1DB954]' : ''}
-                />
-              </button>
-
-              {/* Download MP3 */}
-              <button
-                onClick={handleDownload}
-                className={`p-1.5 transition rounded-full hover:bg-white/10 ${
-                  downloading ? 'text-[#1DB954] animate-pulse' : 'text-zinc-400 hover:text-white'
-                }`}
-                title="Скачать MP3"
-                aria-label="Download MP3"
-              >
-                <Download size={18} />
-              </button>
-
-              {/* Add to Playlist */}
-              <button
-                onClick={() => {
-                  haptic.impact('light');
-                  setIsPlaylistModalOpen(true);
-                }}
-                className="p-1.5 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/10"
-                title="Добавить в плейлист"
-                aria-label="Add to Playlist"
-              >
-                <ListPlus size={18} />
-              </button>
-
-              {/* Share */}
-              <button
-                onClick={handleShare}
-                className="p-1.5 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/10"
-                title="Поделиться"
-              >
-                {copied ? <Check size={18} className="text-[#1DB954]" /> : <Share2 size={18} />}
-              </button>
-
-              {/* Refresh / Not that track */}
-              <button
-                onClick={handleRefreshTrack}
-                disabled={isRefreshing}
-                className={`p-1.5 transition rounded-full hover:bg-white/10 ${
-                  isRefreshing ? 'text-amber-400' : 'text-zinc-400 hover:text-amber-400'
-                }`}
-                title="Не тот трек? Нажмите, чтобы обновить аудио"
-                aria-label="Обновить трек"
-              >
-                <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-
-              {/* 3 Dots Menu */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowMoreMenu((prev) => !prev)}
-                  className={`p-1.5 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/10 ${
-                    showMoreMenu ? 'text-[#1DB954] bg-white/10' : ''
-                  }`}
-                  title="Дополнительно"
-                >
-                  <MoreVertical size={18} />
-                </button>
-
-                {showMoreMenu && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-9 z-50 w-52 bg-[#222222] border border-white/10 rounded-xl shadow-2xl py-1 text-xs text-zinc-200 animate-fade-in"
-                  >
-                    <button
-                      onClick={handleRefreshTrack}
-                      disabled={isRefreshing}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-amber-400 hover:bg-white/10 text-left font-medium"
-                    >
-                      <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
-                      <span>{isRefreshing ? 'Обновляем трек...' : 'Не тот трек (обновить)'}</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        handleDownload();
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/10 text-left"
-                    >
-                      <Download size={15} className="text-[#1DB954]" />
-                      <span>Скачать MP3</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowMoreMenu(false);
-                        setIsPlaylistModalOpen(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/10 text-left"
-                    >
-                      <ListPlus size={15} />
-                      <span>В плейлист</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-          {/* Quick Playback Bar inside Card with dynamic ProgressBar (Waveform, Wave, Thin, Smooth, Classic) */}
-          <div className="bg-white/5 rounded-2xl p-3 border border-white/10 space-y-2">
-            <ProgressBar showTime={true} className="w-full" />
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-4 pt-1">
-              <button
-                onClick={() => { haptic.impact('light'); prevTrack(); }}
-                className="p-1 text-zinc-400 hover:text-white transition"
-              >
-                <SkipBack size={18} />
-              </button>
-              <button
-                onClick={() => { haptic.impact('medium'); togglePlay(); }}
-                className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition shadow"
-              >
-                {isPlaying ? <Pause size={16} className="fill-black" /> : <Play size={16} className="fill-black translate-x-0.5" />}
-              </button>
-              <button
-                onClick={() => { haptic.impact('light'); nextTrack(); }}
-                className="p-1 text-zinc-400 hover:text-white transition"
-              >
-                <SkipForward size={18} />
-              </button>
             </div>
           </div>
 
+          }
         {/* Tab Switcher: Текст / Сведения */}
         <div className="flex bg-white/5 rounded-xl p-1 gap-1">
           <button
@@ -509,7 +378,7 @@ export const NowPlayingSidebar: React.FC = () => {
                   className="cursor-pointer hover:underline"
                 >
                   <div className="text-base font-bold text-white">
-                    {currentTrack.artist_name}
+                    <ArtistNames track={currentTrack} />
                   </div>
                   <div className="text-xs text-zinc-400">Основной исполнитель</div>
                 </div>
@@ -543,7 +412,7 @@ export const NowPlayingSidebar: React.FC = () => {
               <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-zinc-400">Исполнитель:</span>
                 <span className="font-semibold text-white truncate max-w-[200px]">
-                  {currentTrack.artist_name}
+                  <ArtistNames track={currentTrack} />
                 </span>
               </div>
 

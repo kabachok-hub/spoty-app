@@ -34,7 +34,8 @@ class Audio{
  finish(){this.currentTime=this.duration;this.paused=true;this.ended=true;this.emit('timeupdate');this.emit('ended');}
 }
 const document={getElementById:id=>registry.get(id),createElement:()=>new Audio(),body:{appendChild:a=>registry.set(a.id,a)},visibilityState:'visible',addEventListener:(n,f)=>listen('document:'+n,f),removeEventListener:(n,f)=>unlisten('document:'+n,f)};
-const settings=selector=>selector({equalizerEnabled:false,equalizerBands:[0,0,0,0,0]});settings.getState=()=>({equalizerEnabled:false,crossfadeSeconds:crossfade?5:0});
+let crossfadeSeconds=crossfade?5:0, normalizeAudio=process.argv.includes("--normalization");
+const settings=selector=>selector({...settings.getState(),equalizerBands:[0,0,0,0,0]});settings.getState=()=>({equalizerEnabled:false,crossfadeSeconds,normalizeAudio});
 const recoveryContext={exports:{},setTimeout,clearTimeout,Date,Set};vm.createContext(recoveryContext);vm.runInContext(ts.transpileModule(fs.readFileSync('src/hooks/playbackRecovery.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,recoveryContext);
 const modules={
  './playbackRecovery':recoveryContext.exports,
@@ -57,6 +58,17 @@ const flush=()=>new Promise(setImmediate);
  render();await flush();await flush();
  let audio=context.exports.getActiveAudio();
  assert.equal(state.currentTrack.id,'1');assert.equal(audio.paused,false);
+ if(process.argv.includes('--normalization')) {
+  change({volume:.1});await flush();
+  const level=context.exports.computeEffectiveVolume(.1,false);
+  context.exports.setNormalizationGain('1',.5);await new Promise(r=>setTimeout(r,480));
+  assert(Math.abs(audio.volume-level*.5)<1e-9,'Loudness correction applies independently of low user volume');
+  audio.currentTime=1;audio.emit('timeupdate');await flush();assert(Math.abs(audio.volume-level*.5)<1e-9);
+  audio.currentTime=audio.duration-.1;audio.emit('timeupdate');await flush();assert.equal(state.currentTrack.id,'1');assert(Math.abs(audio.volume-level*.5)<1e-9,'No fade at the end when crossfade is off');
+  normalizeAudio=false;render();await flush();assert(Math.abs(audio.volume-level)<1e-9,'Normalization off restores user volume');
+  effects.forEach(e=>e?.cleanup?.());console.log('Low-volume normalization passed: constant gain at start/end, no crossfade, disabling correction restores user volume.');return;
+ }
+
  if(crossfade){
   const old=audio,standby=context.exports.getStandbyAudio(),loads=standby.loads;
   old.currentTime=176;old.emit('timeupdate');await flush();await flush();
@@ -66,6 +78,13 @@ const flush=()=>new Promise(setImmediate);
   await new Promise(r=>setTimeout(r,120));
   assert(audio.volume>0 && audio.volume<.5);assert(old.volume>0 && old.volume<.5);
   assert(audio.volume+old.volume<=.501,'blend must retain output headroom');
+  if(process.argv.includes('--disable-fade')) {
+    crossfadeSeconds=0;render();await flush();
+    assert.equal(old.paused,true,'Disabling crossfade must stop the outgoing deck immediately');
+    assert.equal(audio.volume,.5,'Disabled crossfade must restore full selected volume immediately');
+    await new Promise(r=>setTimeout(r,120));assert.equal(audio.volume,.5,'Old timer must never lower volume again');
+    effects.forEach(e=>e?.cleanup?.());console.log('Crossfade disable passed: immediate unity gain, old deck paused, no surviving ramp.');return;
+  }
   change({seekTarget:7});await flush();assert.equal(old.paused,true,'seeking cancels the old tail');assert.equal(audio.currentTime,7);
   change({isPlaying:false});await flush();assert.equal(old.paused,true);assert.equal(audio.paused,true);
   effects.forEach(e=>e?.cleanup?.());console.log('Crossfade passed: real overlap, prepared-deck reuse, no tail overwrite, headroom, seek and pause cancellation.');return;
@@ -75,7 +94,18 @@ const flush=()=>new Promise(setImmediate);
   audio.currentTime=4;audio.emit('timeupdate');audio.emit('error');await flush();
   assert.equal(state.isPlaying,false);assert(state.playbackNotice);
   await new Promise(r=>setTimeout(r,750));await flush();await flush();
-  assert.equal(state.currentTrack.id,'1');assert.equal(audio.paused,false);assert.equal(audio.currentTime,4,'Retry restores media position');
+  assert.equal(state.currentTrack.id,'1');assert.equal(audio.paused,false);
+ if(process.argv.includes('--normalization')) {
+  change({volume:.1});await flush();
+  const level=context.exports.computeEffectiveVolume(.1,false);
+  context.exports.setNormalizationGain('1',.5);await new Promise(r=>setTimeout(r,480));
+  assert(Math.abs(audio.volume-level*.5)<1e-9,'Loudness correction applies independently of low user volume');
+  audio.currentTime=1;audio.emit('timeupdate');await flush();assert(Math.abs(audio.volume-level*.5)<1e-9);
+  audio.currentTime=audio.duration-.1;audio.emit('timeupdate');await flush();assert.equal(state.currentTrack.id,'1');assert(Math.abs(audio.volume-level*.5)<1e-9,'No fade at the end when crossfade is off');
+  normalizeAudio=false;render();await flush();assert(Math.abs(audio.volume-level)<1e-9,'Normalization off restores user volume');
+  effects.forEach(e=>e?.cleanup?.());console.log('Low-volume normalization passed: constant gain at start/end, no crossfade, disabling correction restores user volume.');return;
+ }
+assert.equal(audio.currentTime,4,'Retry restores media position');
   audio.emit('error');await flush();await new Promise(r=>setTimeout(r,350));await flush();await flush();
   audio=context.exports.getActiveAudio();assert.equal(state.currentTrack.id,'2');assert.equal(audio.paused,false);
   effects.forEach(e=>e?.cleanup?.());console.log('Real audio hook recovery passed: native error → retry at4s → next queue song, no permanent stall.');return;

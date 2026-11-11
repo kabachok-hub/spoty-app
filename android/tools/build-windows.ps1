@@ -1,5 +1,6 @@
 param(
-    [string]$StageRoot = $env:TEMP
+    [string]$StageRoot = $env:TEMP,
+    [switch]$Release
 )
 $ErrorActionPreference = 'Stop'
 $sourceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -32,7 +33,8 @@ Copy-ProjectSources $sourceRoot $stage
 Write-Host "Building isolated source copy: $stage"
 Push-Location -LiteralPath $stage
 try {
-    & (Join-Path $stage 'gradlew.bat') --no-daemon --console=plain :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+    $variant = if ($Release) { 'Release' } else { 'Debug' }
+    & (Join-Path $stage 'gradlew.bat') --no-daemon --console=plain ":app:test${variant}UnitTest" ":app:assemble${variant}" ":app:lint${variant}"
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed ($LASTEXITCODE). Original source remains at $sourceRoot; staged reports remain at $stage." }
 } finally { Pop-Location }
 
@@ -42,5 +44,6 @@ foreach ($category in @('outputs', 'reports', 'test-results')) {
     $artifact = Join-Path $stage "app\build\$category"
     if (Test-Path -LiteralPath $artifact) { Copy-Item -LiteralPath $artifact -Destination $artifactRoot -Recurse -Force }
 }
-Write-Host "Verified debug APK: $(Join-Path $artifactRoot 'outputs\apk\debug\app-debug.apk')"
+if ($Release) { Write-Host "Verified unsigned release APK: $(Join-Path $artifactRoot 'outputs\apk\release\app-release-unsigned.apk')" }
+else { Write-Host "Verified debug APK: $(Join-Path $artifactRoot 'outputs\apk\debug\app-debug.apk')" }
 Write-Host "Staged build retained for diagnosis: $stage"

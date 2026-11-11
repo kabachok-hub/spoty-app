@@ -27,13 +27,18 @@ interface MixCardProps {
 export const MixCard: React.FC<MixCardProps> = ({ mix, onClick, onPlay }) => {
   const { haptic } = useTelegram();
   const language = useSettingsStore((state) => state.language);
+  const playingContext = usePlayerStore((state) => state.currentTrack?.playback_context);
   const activeContextUri = usePlayerStore((state) => state.activeContextUri);
   const isPlaying = usePlayerStore((state) => state.isPlaying);
   const togglePlay = usePlayerStore((state) => state.togglePlay);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const isCurrentMix = activeContextUri === mix.id;
+  // Daily slot IDs are reused for different artist clusters. Only the actual
+  // playing context (ID AND query) identifies the mix shown on a card.
+  const isCurrentMix = playingContext
+    ? playingContext.id === mix.id && playingContext.query === (mix.query || mix.title)
+    : activeContextUri === mix.id && !mix.query;
   const isThisPlaying = isCurrentMix && isPlaying;
 
   const displayTitle = language === 'en' && mix.title_en ? mix.title_en : mix.title;

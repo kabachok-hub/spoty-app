@@ -2,7 +2,7 @@
   "appId": "app.spoty.desktop",
   "productName": "Spoty",
   "directories": {
-    "output": "installers/0.2.9"
+    "output": "installers/0.3.0"
   },
   "win": {
     "target": [

@@ -1,3 +1,5 @@
+import { TrackActionsMenu } from './TrackActionsMenu';
+import { ArtistNames } from './ArtistNames';
 import { refreshRecording } from '../../hooks/refreshRecording';
 import React, { useState } from 'react';
 import {
@@ -166,7 +168,7 @@ export const MiniPlayer: React.FC = () => {
       className={`fixed z-40 select-none glass-surface border border-white/10 shadow-2xl overflow-hidden
         bottom-[calc(var(--mobile-nav-offset,84px)+12px)]
         left-2 right-2 rounded-2xl
-        md:bottom-0 md:left-0 md:right-0 md:rounded-none md:border-x-0 md:border-b-0 md:border-t md:border-white/10 md:px-6 md:py-2 md:h-[84px]`}
+        md:overflow-visible md:bottom-0 md:left-0 md:right-0 md:rounded-none md:border-x-0 md:border-b-0 md:border-t md:border-white/10 md:px-6 md:py-2 md:h-[84px]`}
     >
       {/* ─────────────────────────────────────────────────────────────
           1. MOBILE VIEW (< md) — Exactly as before
@@ -209,16 +211,9 @@ export const MiniPlayer: React.FC = () => {
                   {currentTrack.title}
                 </div>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  haptic.selection();
-                  openArtist(currentTrack.artist_id, currentTrack.artist_name);
-                }}
-                className="text-xs text-zinc-400 hover:text-[#1DB954] hover:underline truncate text-left transition cursor-pointer max-w-full block"
-              >
-                {currentTrack.artist_name}
-              </button>
+              <span className="text-xs text-zinc-400 truncate text-left transition max-w-full block">
+                <ArtistNames track={currentTrack} />
+              </span>
             </div>
           </div>
 
@@ -292,9 +287,9 @@ export const MiniPlayer: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           2. DESKTOP / PC VIEW (>= md) — Spotify Desktop Bottom Bar
          ───────────────────────────────────────────────────────────── */}
-      <div className="hidden md:flex items-center justify-between h-full gap-4 max-w-7xl mx-auto">
+      <div className="hidden md:flex items-center justify-between h-full gap-2 max-w-[1600px] mx-auto">
         {/* Left: Track Info */}
-        <div className="flex items-center gap-3.5 w-1/4 min-w-[200px] max-w-[320px]">
+        <div className="flex items-center gap-2 lg:gap-3.5 w-[22%] min-w-[140px] max-w-[300px]">
           <div
             onClick={handleOpenFullscreen}
             className="relative w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-[#242424] shadow cursor-pointer group"
@@ -319,12 +314,9 @@ export const MiniPlayer: React.FC = () => {
             >
               {currentTrack.title}
             </div>
-            <button
-              onClick={() => openArtist(currentTrack.artist_id, currentTrack.artist_name)}
-              className="text-xs text-zinc-400 hover:text-[#1DB954] hover:underline truncate text-left transition cursor-pointer block max-w-full"
-            >
-              {currentTrack.artist_name}
-            </button>
+            <span className="text-xs text-zinc-400 truncate text-left transition block max-w-full">
+              <ArtistNames track={currentTrack} />
+            </span>
           </div>
 
           <button
@@ -341,9 +333,9 @@ export const MiniPlayer: React.FC = () => {
         </div>
 
         {/* Center: Controls & Timeline Slider */}
-        <div className="flex-1 max-w-2xl flex flex-col items-center justify-center px-4 py-1">
+        <div className="flex-1 min-w-0 max-w-2xl flex flex-col items-center justify-center px-1 lg:px-4 py-1">
           {/* Controls buttons row */}
-          <div className="flex items-center gap-4 mb-1 h-8">
+          <div className="flex items-center gap-2 lg:gap-4 mb-1 h-8">
             <button
               onClick={() => toggleShuffle()}
               className={`p-1 transition rounded-full ${isShuffle ? 'text-[#1DB954]' : 'text-zinc-400 hover:text-white'}`}
@@ -404,14 +396,14 @@ export const MiniPlayer: React.FC = () => {
         </div>
 
         {/* Right: Volume & Extra Actions */}
-        <div className="flex items-center justify-end gap-3 w-1/4 min-w-[200px] max-w-[320px]">
+        <div className="flex items-center justify-end gap-0.5 lg:gap-1.5 shrink-0 w-[310px] lg:w-[340px] xl:w-[400px]">
           {/* Toggle Now Playing Right Sidebar (карточка справа) */}
           <button
             onClick={() => {
               haptic.selection();
               toggleNowPlaying();
             }}
-            className={`p-2 transition rounded-full hover:bg-white/10 ${
+            className={`p-1 xl:p-2 transition rounded-full hover:bg-white/10 ${
               isNowPlayingOpen ? 'text-[#1DB954] bg-[#1DB954]/15' : 'text-zinc-400 hover:text-white'
             }`}
             title="Карточка трека справа (сведения и текст)"
@@ -422,45 +414,23 @@ export const MiniPlayer: React.FC = () => {
           {/* Queue Drawer */}
           <button
             onClick={() => setQueueOpen(true)}
-            className="p-2 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/5"
+            className="p-1 xl:p-2 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/5"
             title="Очередь"
           >
             <ListMusic size={18} />
           </button>
 
-          {/* Download MP3 */}
-          <button
-            onClick={() => {
-              haptic.notification('success');
-              api.downloadTrack(currentTrack);
-            }}
-            className="p-2 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/10"
-            title="Скачать трек (MP3)"
-          >
-            <Download size={18} />
-          </button>
-
-          {/* Refresh Track (Не тот трек) */}
-          <button
-            onClick={handleRefreshTrack}
-            disabled={isRefreshing}
-            className={`p-2 transition rounded-full hover:bg-white/10 ${
-              isRefreshing ? 'text-amber-400' : 'text-zinc-400 hover:text-amber-400'
-            }`}
-            title="Не тот трек? Нажмите для обновления аудио"
-          >
-            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-          </button>
+          <TrackActionsMenu track={currentTrack} />
 
           {/* Inline Desktop Volume Slider */}
-          <div className="w-36">
+          <div className="w-32 xl:w-40 shrink-0">
             <VolumeControl showPercentage={false} showStepButtons={false} showPresets={false} />
           </div>
 
           {/* Fullscreen Player toggle */}
           <button
             onClick={handleOpenFullscreen}
-            className="p-2 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/5"
+            className="p-1 xl:p-2 text-zinc-400 hover:text-white transition rounded-full hover:bg-white/5"
             title="Развернуть"
           >
             <Maximize2 size={18} />

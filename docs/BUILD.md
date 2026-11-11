@@ -20,7 +20,7 @@ npm --prefix windows run package
 npm --prefix windows run installer
 ```
 
-Установщик: `windows/installers/0.2.4/Spoty-Setup.exe`. Портативная сборка: `windows/releases/0.2.4/Spoty-win32-x64/`.
+Установщик: `windows/installers/0.3.0/Spoty-Setup.exe`. Портативная сборка: `windows/releases/0.3.0/Spoty-win32-x64/`.
 
 **Android:** задайте `JAVA_HOME` и `ANDROID_HOME`, затем выполните:
 
@@ -30,3 +30,5 @@ powershell -ExecutionPolicy Bypass -File android/tools/build-windows.ps1
 ```
 
 Результат: `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Для APK без отладки добавьте `-Release` к команде сборки. Результат — `android/app/build/outputs/apk/release/app-release-unsigned.apk`. Подпишите его собственным ключом через Android SDK `apksigner`; для обновления существующей установки нужен прежний ключ. Ключи хранятся вне репозитория.

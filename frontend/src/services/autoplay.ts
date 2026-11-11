@@ -29,7 +29,7 @@ export async function planContinuation(track: Track, queue: Track[], context: Ac
         const rows = fresh(await api.getMixTracks(mix.query!, 50, false, mix.id));
         if (rows.length) {
           const next = candidates.find(m => m.id !== mix.id && !visited.has(m.id));
-          const origin: ActiveMixContext = { ...mix, query: mix.query!, type: mix.type || 'mix', visitedMixIds: [...visited], nextMix: next || null };
+          const origin: ActiveMixContext = { ...mix, ownerId: context?.ownerId, query: mix.query!, type: mix.type || 'mix', visitedMixIds: [...visited], nextMix: next || null };
           return rows.map(t => ({ ...t, recommended_automatically: true, playback_context: origin }));
         }
       } catch { /* Try another real context, never a search for a fabricated mix name. */ }

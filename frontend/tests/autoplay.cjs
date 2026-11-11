@@ -9,6 +9,12 @@ function create(factory){let state;const get=()=>state,set=p=>{state={...state,.
 let resolve;
 const storeModule=load('src/store/playerStore.ts',{'zustand':{create},'../hooks/listeningFeedback':{finishListening(){},interruptListening(){}},'../services/autoplay':{planContinuation:()=>new Promise(r=>resolve=r)},'../api/client':{api},'./recommendationPreferences':{isHiddenTrack:()=>false,isAutomaticMix:()=>false}});
 const {usePlayerStore:store,ensureAutoplay}=storeModule;
+const {tracksForPlayingMix}=storeModule;
+const origin={...A,ownerId:123};const pinned=[{...t('first'),playback_context:origin},{...t('second'),playback_context:origin},{...t('tail'),playback_context:B}];
+assert.equal(tracksForPlayingMix(pinned,origin,origin,123).map(t=>t.id).join(','),'first,second','Page pins only current mix, without prepared continuation');
+assert.equal(tracksForPlayingMix(pinned,origin,origin,456).length,0,'Never reuse another account playlist');
+assert.equal(tracksForPlayingMix(pinned,origin,{...origin,query:'different'},123).length,0,'Same mix ID with another query is distinct');
+
 (async()=>{
  let rows=await planContinuation(t('old'),[t('old')],{...A,nextMix:B});
  assert.equal(rows.length,2);assert.equal(rows[0].id,'b1');assert.equal(rows[0].playback_context.id,'b');assert.equal(calls[0].q,B.query);

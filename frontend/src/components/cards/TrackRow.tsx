@@ -1,3 +1,4 @@
+import { ArtistNames } from '../player/ArtistNames';
 import { trackShareUrl } from '../../platform/publicSite';
 import { refreshRecording } from '../../hooks/refreshRecording';
 import React, { useState } from 'react';
@@ -148,17 +149,9 @@ export const TrackRow: React.FC<TrackRowProps> = ({
           </div>
           {refreshError && <p role="status" className="text-xs text-amber-300">{refreshError}</p>}
           <div className="flex items-center gap-1.5 min-w-0">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                haptic.selection();
-                openArtist(track.artist_id, track.artist_name);
-              }}
-              className="pointer-events-auto w-fit max-w-full min-w-0 p-0 text-xs text-zinc-400 hover:text-[#1DB954] hover:underline truncate text-left transition cursor-pointer"
-            >
-              {track.artist_name}
-            </button>
+            <span className="pointer-events-auto w-fit max-w-full min-w-0 p-0 text-xs text-zinc-400 truncate text-left transition ">
+              <ArtistNames track={track} />
+            </span>
             {track.badge && (
               <span
                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 leading-none ${
@@ -249,7 +242,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
                   haptic.impact('light');
                   const tg = (window as any).Telegram?.WebApp;
                   const url = trackShareUrl(track.id);
-                  const text = `🎵 ${track.artist_name} — ${track.title}`;
+                  const text = `🎵 $<ArtistNames track={track} /> — ${track.title}`;
                   if (tg?.openTelegramLink) {
                     tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`);
                   } else {

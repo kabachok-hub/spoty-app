@@ -1,3 +1,4 @@
+import { ArtistNames } from '../components/player/ArtistNames';
 import { OfflineDownloadButton } from '../components/player/OfflinePanel';
 import React, { useEffect, useState } from 'react';
 import { Play, Shuffle, Disc, Calendar, Music2, ListPlus } from 'lucide-react';
@@ -200,13 +201,10 @@ export const AlbumPage: React.FC<AlbumPageProps> = ({ albumId, onBack }) => {
             {/* Artist clickable link */}
             {album.artist_name && (
               <div className="mb-2">
-                <button
-                  onClick={() => openArtist(album.artist_id, album.artist_name)}
-                  className="text-sm font-bold text-white hover:text-[#1DB954] hover:underline active:opacity-75 transition inline-flex items-center gap-1.5"
-                >
+                <span className="text-sm font-bold text-white active:opacity-75 transition inline-flex items-center gap-1.5">
                   <Music2 size={14} className="text-[#1DB954]" />
-                  <span>{album.artist_name}</span>
-                </button>
+                  <span><ArtistNames track={{...album,id: ''}} /></span>
+                </span>
               </div>
             )}
 

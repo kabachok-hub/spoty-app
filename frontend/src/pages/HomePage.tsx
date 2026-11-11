@@ -1,3 +1,4 @@
+import { useRecentShelf, mixKey } from '../store/recentShelf';
 import { useBrowseWarmup } from '../platform/useBrowseWarmup';
 import React, { useEffect, useState, useRef } from 'react';
 import { Play, Sparkles, Heart, Github, TrendingUp, RefreshCw } from 'lucide-react';
@@ -42,6 +43,13 @@ export const HomePage: React.FC<HomePageProps> = ({
   onSelectMix,
   onSelectAlbum,
 }) => {
+  const shelf = useRecentShelf();
+  const accountId = useUserStore(state => state.user?.telegram_id);
+  const playRequest = useRef(0);
+  useEffect(() => () => { ++playRequest.current; }, [accountId]);
+  const owner = accountId && accountId !== 999999999 ? String(accountId) : '';
+  const shelfEntries = shelf.owner === owner ? shelf.entries : [];
+  const hiddenMixes = shelf.owner === owner ? shelf.hidden.filter(key => key !== shelf.activeMixKey) : [];
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterChip>('all');
 
@@ -74,6 +82,8 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   const loadVersion = useRef(0);
   const loadAllData = async (force = false) => {
+    useRecentShelf.getState().switchOwner(owner);
+    if (force) useRecentShelf.getState().showAllMixes();
     const version = ++loadVersion.current;
     const userId = user?.telegram_id;
     const valid = () => version === loadVersion.current && userId === useUserStore.getState().user?.telegram_id;
@@ -92,13 +102,18 @@ export const HomePage: React.FC<HomePageProps> = ({
       setLoading(true);
     }
     try {
-      const [recsRes, chartsRes, historyRes] = await Promise.all([
+      const [recsRes, chartsRes, historyRes, contexts] = await Promise.all([
         apiClient.get('/recommendations/home', { params: force ? { force_refresh: true } : {} }).catch(() => ({ data: null })),
         api.getCharts().catch(() => null),
         api.getMyHistory().catch(() => [] as Track[]),
+        api.getRecentContexts(),
       ]);
 
       if (!valid()) return;
+      useRecentShelf.getState().hydrate(owner, contexts);
+      if (!useRecentShelf.getState().entries.some(e => e.track)) {
+        for (const [i, track] of (historyRes || []).slice(0,6).entries()) useRecentShelf.getState().addTrack(owner, track, 1-i);
+      }
       const recs = recsRes.data;
       if (recs) {
         setUserName(recs.user_name || user?.first_name || 'друг');
@@ -244,10 +259,14 @@ export const HomePage: React.FC<HomePageProps> = ({
       }
     }
 
+    useRecentShelf.getState().selectMix(owner, mix);
+    // Keep the unfiltered feed order even after moving this card to the recent shelf.
     onSelectMix(mix, nextMix);
   };
 
   const handlePlayMixDirectly = async (mix: MixItem) => {
+    const ticket = ++playRequest.current;
+    const intent = usePlayerStore.getState().playbackIntent;
     haptic.impact('medium');
     try {
       const q = mix.query || mix.title;
@@ -263,6 +282,8 @@ export const HomePage: React.FC<HomePageProps> = ({
       });
 
       const tracks: Track[] = await api.getMixTracks(q, 50, false, mix.id);
+      if (ticket !== playRequest.current || useUserStore.getState().user?.telegram_id !== accountId
+          || usePlayerStore.getState().playbackIntent !== intent) return;
       if (tracks.length > 0) {
         let nextMix: MixItem | undefined = undefined;
         const allList = dailyMixes.some((m) => m.id === mix.id)
@@ -276,6 +297,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         }
 
         const mixContext: ActiveMixContext = {
+          ownerId: useUserStore.getState().user?.telegram_id,
           id: mix.id,
           title: mix.title,
           title_en: mix.title_en,
@@ -297,6 +319,8 @@ export const HomePage: React.FC<HomePageProps> = ({
 
         usePlayerStore.getState().setActiveContextUri(mix.id);
         usePlayerStore.getState().setActiveMix(mixContext);
+        // The ordinary play action starts the visible list in order.
+        if (usePlayerStore.getState().isShuffle) usePlayerStore.getState().toggleShuffle();
         usePlayerStore.getState().setQueue(tracks, 0, mixContext);
       }
     } catch (e) {
@@ -304,7 +328,6 @@ export const HomePage: React.FC<HomePageProps> = ({
     }
   };
 
-  const quickPicks = (recentTracks.length > 0 ? recentTracks : chartTracks).slice(0, 6);
   useBrowseWarmup(recentTracks.length > 0 ? recentTracks : chartTracks, 'home', filter !== 'mixes');
 
   return (
@@ -357,39 +380,6 @@ export const HomePage: React.FC<HomePageProps> = ({
       <SyncModal isOpen={syncOpen} onClose={() => setSyncOpen(false)} />
 
 
-      {/* Quick Picks Responsive Grid (2-col mobile, 3-col tablet, 6-col desktop) */}
-      {filter !== 'mixes' && (
-        <div>
-          <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 md:gap-3.5">
-            {quickPicks.map((track) => (
-              <div
-                key={`quick-${track.id}`}
-                onClick={() => {
-                  haptic.impact('light');
-                  playTrack(track, quickPicks);
-                }}
-                className="group flex items-center bg-[#242424] hover:bg-[#2e2e2e] active:bg-[#383838] rounded-lg overflow-hidden cursor-pointer transition shadow select-none"
-              >
-                <img
-                  src={track.cover_url || '/placeholder.png'}
-                  alt={track.title}
-                  className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] object-cover flex-shrink-0"
-                />
-                <span className="font-semibold text-xs text-white px-2.5 line-clamp-2 leading-snug flex-1">
-                  {track.title}
-                </span>
-                <button
-                  className="mr-2 w-7 h-7 rounded-full bg-[#1DB954] text-black opacity-0 group-hover:opacity-100 flex items-center justify-center transition shadow-lg flex-shrink-0"
-                  aria-label="Play"
-                >
-                  <Play size={14} className="fill-black translate-x-0.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* 🎭 Mood Radio */}
       {filter !== 'mixes' && (
         <div>
@@ -428,9 +418,9 @@ export const HomePage: React.FC<HomePageProps> = ({
         </div>
       )}
 
-      {isSignedIn && (loading || dailyMixes.length > 0) && (<>
-      {/* SECTION 1: «Только для тебя, {Имя}» (Screenshot 1) */}
-      <div>
+      {isSignedIn && (loading || dailyMixes.some(m => !hiddenMixes.includes(mixKey(m)))) && (<>
+      {/* Personalized mixes */}
+      <div data-testid="made-for-you">
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-[11px] font-semibold text-zinc-400">
@@ -461,7 +451,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         ) : (
           <ScrollableRow>
-            {dailyMixes.map((mix) => (
+            {dailyMixes.filter(m => !hiddenMixes.includes(mixKey(m))).map((mix) => (
               <div key={mix.id} className="w-36 sm:w-40 flex-shrink-0">
                 <MixCard
                   mix={mix}
@@ -475,9 +465,32 @@ export const HomePage: React.FC<HomePageProps> = ({
       </div>
 
       </>)}
-      {isSignedIn && (loading || bestMixes.length > 0) && (<>
-      {/* SECTION 2: «Твои лучшие миксы» (Screenshot 1) */}
-      <div>
+      {isSignedIn && (shelfEntries.length > 0 || favorites.length > 0) && (
+        <section data-testid="recent-shelf" className="rounded-2xl border border-white/5 bg-white/[0.025] p-4 md:p-5 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div><h2 className="text-lg font-bold text-white">Недавно слушал</h2>
+              <p className="text-xs text-zinc-400 mt-1">Быстрый доступ к твоим трекам и открытым миксам</p></div>
+            {hiddenMixes.length > 0 && <button onClick={() => shelf.showAllMixes()} className="text-xs font-semibold text-[#1DB954] py-2">Показать все миксы в подборках</button>}
+          </div>
+          <ScrollableRow>
+            {favorites.length > 0 && filter !== 'mixes' && <button onClick={onSelectLikedSongs} className="w-36 sm:w-40 flex-shrink-0 p-2.5 text-left rounded-xl hover:bg-white/5">
+              <div className="aspect-square rounded-lg bg-gradient-to-br from-indigo-700 to-purple-400 flex items-center justify-center mb-2"><Heart size={44} className="fill-white text-white" /></div>
+              <div className="text-sm font-bold">Любимые треки</div><div className="text-xs text-zinc-400 mt-1">{favorites.length} треков</div>
+            </button>}
+            {shelfEntries.filter(entry => filter !== 'mixes' || entry.mix).map(entry => <div key={entry.key} className="w-36 sm:w-40 flex-shrink-0">
+              {entry.mix ? <MixCard mix={entry.mix} onClick={m => handleMixClick(m, [...dailyMixes,...bestMixes,...stations])} onPlay={handlePlayMixDirectly} /> : entry.track && <button onClick={() => playTrack(entry.track!, shelfEntries.flatMap(e => e.track ? [e.track] : []))} className="group w-full text-left p-2.5 rounded-xl hover:bg-white/5 transition-colors">
+                <div className="relative aspect-square mb-2"><img src={entry.track.cover_url || '/placeholder.png'} alt="" className="w-full h-full object-cover rounded-lg" />
+                  <span className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-[#1DB954] text-black flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition"><Play size={18} className="fill-black" /></span></div>
+                <div className="text-sm font-bold truncate">{entry.track.title}</div><div className="text-xs text-zinc-400 truncate mt-1">{entry.track.artist_name}</div>
+              </button>}
+            </div>)}
+          </ScrollableRow>
+        </section>
+      )}
+
+      {isSignedIn && (loading || bestMixes.some(m => !hiddenMixes.includes(mixKey(m)))) && (<>
+      {/* More mixes */}
+      <div data-testid="top-mixes">
         <h2 className="text-lg font-bold text-white mb-3 tracking-tight">
           {t('your_top_mixes')}
         </h2>
@@ -490,7 +503,7 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         ) : (
           <ScrollableRow>
-            {bestMixes.map((mix) => (
+            {bestMixes.filter(m => !hiddenMixes.includes(mixKey(m))).map((mix) => (
               <div key={mix.id} className="w-36 sm:w-40 flex-shrink-0">
                 <MixCard
                   mix={mix}
@@ -507,7 +520,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       {isSignedIn && stations.length > 0 && <section>
         <h2 className="text-lg font-bold text-white mb-1">Рекомендуемые станции</h2>
         <p className="text-xs text-zinc-400 mb-3">Близкое вашему вкусу — с другими исполнителями. Обновляются каждые 3 часа.</p>
-        <ScrollableRow>{stations.map(mix => <div key={mix.id} className="w-36 sm:w-40 flex-shrink-0">
+        <ScrollableRow>{stations.filter(m => !hiddenMixes.includes(mixKey(m))).map(mix => <div key={mix.id} className="w-36 sm:w-40 flex-shrink-0">
           <MixCard mix={mix} onClick={m => handleMixClick(m, stations)} onPlay={handlePlayMixDirectly} />
         </div>)}</ScrollableRow>
       </section>}
@@ -529,47 +542,6 @@ export const HomePage: React.FC<HomePageProps> = ({
           <ArtistCard artist={artist} onClick={onSelectArtist} />
         </div>)}</ScrollableRow>
       </section>}
-
-      {/* SECTION 3: «Недавние» (Screenshot 2: Liked songs + Radio) */}
-      {recentItems.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-white mb-3 tracking-tight">
-            {t('recently_played')}
-          </h2>
-
-          <ScrollableRow>
-            {/* Prominent Liked Songs Tile */}
-            <div
-              onClick={() => {
-                haptic.impact('light');
-                onSelectLikedSongs();
-              }}
-              className="w-36 sm:w-40 flex-shrink-0 flex flex-col p-2.5 rounded-xl bg-[#181818] hover:bg-[#282828] active:bg-[#303030] transition cursor-pointer select-none"
-            >
-              <div className="relative aspect-square w-full rounded-lg overflow-hidden mb-2 bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-700 flex items-center justify-center shadow-lg">
-                <Heart size={44} className="text-white fill-white" />
-              </div>
-              <div className="font-semibold text-xs text-white truncate">
-                {t('liked_songs')}
-              </div>
-              <p className="text-[11px] text-zinc-400 truncate">
-                {favorites.length} {t('songs').toLowerCase()}
-              </p>
-            </div>
-
-            {/* Other Recent Radio/Mix items */}
-            {recentItems.filter((it) => !it.is_liked_songs).map((mix) => (
-              <div key={mix.id} className="w-36 sm:w-40 flex-shrink-0">
-                <MixCard
-                  mix={mix}
-                  onClick={(m) => handleMixClick(m, recentItems)}
-                  onPlay={(m) => handlePlayMixDirectly(m)}
-                />
-              </div>
-            ))}
-          </ScrollableRow>
-        </div>
-      )}
 
       {/* SECTION 4: Top Hits Today */}
       {filter !== 'mixes' && (

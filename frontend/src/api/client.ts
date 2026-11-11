@@ -262,6 +262,7 @@ export const api = {
     banner_color?: string;
     banner_text?: string;
   }): Promise<void> => {
+    window.dispatchEvent(new CustomEvent('spoty:recent-context', { detail: context }));
     try {
       await apiClient.post('/me/history/context', context);
     } catch (e) {}

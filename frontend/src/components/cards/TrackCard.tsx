@@ -1,3 +1,4 @@
+import { ArtistNames } from '../player/ArtistNames';
 import React from 'react';
 import { Play, Pause } from 'lucide-react';
 import { Track } from '../../api/types';
@@ -67,7 +68,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, queueContext }) => 
       >
         {track.title}
       </div>
-      <div className="text-xs text-zinc-400 truncate">{track.artist_name}</div>
+      <div className="text-xs text-zinc-400 truncate"><ArtistNames track={track} /></div>
     </div>
   );
 };

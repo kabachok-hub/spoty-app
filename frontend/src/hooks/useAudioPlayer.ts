@@ -253,7 +253,7 @@ function beginCrossfade(outgoing: 'A' | 'B', seconds: number) {
   const started = Date.now(), incoming = activeDeck;
   fadeTimer = setInterval(() => {
     const state = usePlayerStore.getState();
-    if (!state.isPlaying || activeDeck !== incoming) { cancelCrossfade(); return; }
+    if (!state.isPlaying || activeDeck !== incoming || useSettingsStore.getState().crossfadeSeconds <= 0) { cancelCrossfade(); return; }
     const progress = Math.min(1, (Date.now() - started) / (seconds * 1000));
     const out = Math.cos(progress * Math.PI / 2), into = Math.sin(progress * Math.PI / 2);
     const headroom = Math.max(1, out + into);
@@ -661,6 +661,13 @@ export function useAudioPlayer(enabled = true) {
   const queueIndex = usePlayerStore((state) => state.queueIndex);
 
   const normalizeAudio = useSettingsStore(state => state.normalizeAudio);
+  const crossfadeSeconds = useSettingsStore(state => state.crossfadeSeconds);
+  useEffect(() => {
+    if (!enabled || crossfadeSeconds > 0) return;
+    fadeRequest = null;
+    fadeInitialSeek = false;
+    cancelCrossfade();
+  }, [enabled, crossfadeSeconds]);
   const equalizerEnabled = useSettingsStore((state) => state.equalizerEnabled);
   const equalizerBands = useSettingsStore((state) => state.equalizerBands);
 
@@ -1017,7 +1024,7 @@ export function useAudioPlayer(enabled = true) {
 
     clearStall();
     cancelCrossfade();
-    const blend = fadeRequest?.nextId === currentTrack.id ? fadeRequest : null;
+    const blend = useSettingsStore.getState().crossfadeSeconds > 0 && fadeRequest?.nextId === currentTrack.id ? fadeRequest : null;
     fadeRequest = null;
     const outgoing = activeDeck;
     const request = ++playbackRequest;
@@ -1093,7 +1100,10 @@ export function useAudioPlayer(enabled = true) {
       const playingAudio = active;
       playWithDeadline(active).then(() => {
         if (request !== playbackRequest || !usePlayerStore.getState().isPlaying) { if (blend) cancelCrossfade(); return; }
-        if (blend && reuse) beginCrossfade(outgoing, blend.seconds);
+        if (blend && reuse) {
+          if (useSettingsStore.getState().crossfadeSeconds > 0) beginCrossfade(outgoing, blend.seconds);
+          else cancelCrossfade();
+        }
       }).catch((err) => {
         if (request !== playbackRequest) return;
         cancelCrossfade();

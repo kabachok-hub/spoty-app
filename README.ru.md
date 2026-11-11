@@ -6,7 +6,7 @@
 
 Музыкальное приложение с общим аккаунтом и библиотекой на всех устройствах. Поиск треков, плейлисты, персональные миксы, тексты песен и фоновое воспроизведение. Вход через Telegram.
 
-**[Скачать для Windows](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.9/Spoty-Setup.exe)** · **[Скачать для Android](https://github.com/kabachok-hub/spoty-app/releases/download/v0.2.9/Spoty-Android-0.2.9.apk)**
+**[Скачать для Windows](https://github.com/kabachok-hub/spoty-app/releases/download/v0.3.0/Spoty-Setup.exe)** · **[Скачать для Android](https://github.com/kabachok-hub/spoty-app/releases/download/v0.3.0/Spoty-Android-0.3.0.apk)**
 
 ## Зачем пробовать Spoty?
 
@@ -28,7 +28,7 @@
 
 **Android 6+:** установи APK и войди через Telegram. Обновления устанавливаются поверх предыдущей версии.
 
-Обновления пока устанавливаются вручную. Все версии — в [Releases](https://github.com/kabachok-hub/spoty-app/releases).
+Обновления доступны в настройках приложения. На Android нужно подтвердить установку. Все версии — в [Releases](https://github.com/kabachok-hub/spoty-app/releases).
 
 ## Разработка и обратная связь
 
