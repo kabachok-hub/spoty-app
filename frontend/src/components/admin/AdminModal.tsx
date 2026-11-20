@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
+import { DialogSurface } from '../ui/DialogSurface';
 import { api } from '../../api/client';
 import { AdminStats, AdminUserItem } from '../../api/types';
 import { useUserStore } from '../../store/userStore';
@@ -25,42 +26,51 @@ interface AdminModalProps {
 
 export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
   const user = useUserStore((state) => state.user);
+  return isOpen && user?.is_admin ? <AdminPanel key={user.telegram_id} userId={user.telegram_id} onClose={onClose} /> : null;
+};
+
+function AdminPanel({ userId, onClose }: { userId: number; onClose: () => void }) {
   const { haptic } = useTelegram();
 
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUserItem[]>([]);
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'metrics' | 'users'>('metrics');
 
+  const [error, setError] = useState('');
+  const request = React.useRef(0);
   const loadData = async () => {
-    if (!user?.telegram_id) return;
+    const current = ++request.current;
+    setError('');
     setLoading(true);
     try {
-      const [s, u] = await Promise.all([
-        api.getAdminStats(user.telegram_id),
-        api.getAdminUsers(user.telegram_id, 20),
+      const [s, u] = await Promise.allSettled([
+        api.getAdminStats(userId),
+        api.getAdminUsers(userId, 20),
       ]);
-      setStats(s);
-      setUsers(u);
-    } catch (err) {
-      console.error('Failed to load admin stats:', err);
+      if (request.current !== current) return;
+      if (s.status === 'fulfilled') setStats(s.value);
+      if (u.status === 'fulfilled') setUsers(u.value);
+      const missing = [s.status === 'rejected' && 'метрики', u.status === 'rejected' && 'список пользователей'].filter(Boolean);
+      if (missing.length) setError('Не удалось обновить ' + missing.join(' и ') + '.');
     } finally {
-      setLoading(false);
+      if (request.current === current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      loadData();
-    }
-  }, [isOpen]);
+    void loadData();
+    return () => { request.current++; };
+  }, [userId]);
 
-  if (!isOpen) return null;
+  const term = query.trim().toLowerCase().replace(/^@/, '');
+  const visibleUsers = users.filter(item => [item.first_name, item.username, String(item.telegram_id)]
+    .some(value => value?.toLowerCase().includes(term)));
 
-  const handleCopyReport = () => {
+  const handleCopyReport = async () => {
     if (!stats) return;
-    haptic.notification('success');
     const text = [
       '🛡️ Отчёт Spoty Music',
       `🟢 Онлайн сейчас: ${stats.online_5m}`,
@@ -73,29 +83,33 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
       `⏱️ ${stats.updated_at}`,
     ].join('\n');
 
-    navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      setError('Не удалось скопировать отчёт. Проверьте разрешение на доступ к буферу обмена.');
+      return;
+    }
+    haptic.notification('success');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in select-none">
-      <div className="relative w-full max-w-xl max-h-[90vh] bg-[#141414] border border-[#282828] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
+    <DialogSurface title="Панель администратора" onClose={onClose} className="max-w-2xl rounded-2xl border border-white/10 bg-[#141414] p-0 text-white shadow-2xl">
+      <div className="flex max-h-[inherit] flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/10 bg-[#181818]/60">
+        <div className="flex items-center justify-between shrink-0 px-4 py-4 sm:px-6 sm:py-5 border-b border-white/10 bg-gradient-to-r from-emerald-950/60 to-[#171918]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-300">
               <Shield size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold tracking-tight">Панель администратора</h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">
-                  ROOT
-                </span>
+
               </div>
               <p className="text-xs text-zinc-400">
-                Мониторинг пользователей и активности бота
+                Активность, медиатека и кэш
               </p>
             </div>
           </div>
@@ -113,7 +127,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
               <RefreshCw size={18} className={loading ? 'animate-spin text-[#1DB954]' : ''} />
             </button>
             <button
-              onClick={() => {
+              aria-label="Закрыть панель" onClick={() => {
                 haptic.impact('light');
                 onClose();
               }}
@@ -125,19 +139,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Live Status Pill */}
-        {stats && (
-          <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+          <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-2">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1DB954]/15 border border-[#1DB954]/30 text-xs font-semibold text-[#1DB954]">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1DB954] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#1DB954]"></span>
               </span>
-              <span>{stats.online_5m} {stats.online_5m === 1 ? 'человек' : 'человек'} сейчас в боте</span>
+              <span>Онлайн · {stats?.online_5m ?? '—'}</span>
             </div>
 
             <div className="flex gap-1 text-xs bg-white/5 p-1 rounded-xl">
               <button
-                onClick={() => setActiveTab('metrics')}
+                aria-pressed={activeTab === 'metrics'} onClick={() => setActiveTab('metrics')}
                 className={`px-3 py-1 rounded-lg font-medium transition ${
                   activeTab === 'metrics'
                     ? 'bg-[#1DB954] text-black font-semibold'
@@ -147,7 +160,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 Метрики
               </button>
               <button
-                onClick={() => setActiveTab('users')}
+                aria-pressed={activeTab === 'users'} onClick={() => setActiveTab('users')}
                 className={`px-3 py-1 rounded-lg font-medium transition ${
                   activeTab === 'users'
                     ? 'bg-[#1DB954] text-black font-semibold'
@@ -158,11 +171,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
               </button>
             </div>
           </div>
-        )}
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-5 pt-2 space-y-4 no-scrollbar">
-          {loading && !stats ? (
+        <div className="flex-1 overflow-y-auto p-5 pt-2 space-y-4 overscroll-contain">
+          {error && <p role="alert" className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">{error}</p>}
+          {loading && !stats && !users.length ? (
             <div className="py-20 flex flex-col items-center justify-center text-zinc-500 gap-3">
               <RefreshCw size={32} className="animate-spin text-[#1DB954]" />
               <p className="text-xs">Загрузка данных сервера...</p>
@@ -170,14 +183,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
           ) : stats && activeTab === 'metrics' ? (
             <>
               {/* Metric Cards Grid */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 {/* 1. Total Registered */}
                 <div className="p-3.5 rounded-xl bg-[#1c1c1c] border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-medium">Всего подписано</span>
+                  <div className="flex items-start justify-between gap-2 mb-2 [&>svg]:shrink-0">
+                    <span className="min-w-0 text-xs text-zinc-400 font-medium">Пользователи</span>
                     <Users size={16} className="text-blue-400" />
                   </div>
-                  <div className="text-2xl font-bold text-white tracking-tight">
+                  <div className="text-2xl tabular-nums font-bold text-white tracking-tight">
                     {stats.total_users}
                   </div>
                   <div className="text-[11px] text-[#1DB954] mt-1 font-medium">
@@ -187,11 +200,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
                 {/* 2. Active 24h */}
                 <div className="p-3.5 rounded-xl bg-[#1c1c1c] border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-medium">Активны за сутки</span>
+                  <div className="flex items-start justify-between gap-2 mb-2 [&>svg]:shrink-0">
+                    <span className="min-w-0 text-xs text-zinc-400 font-medium">Активны за сутки</span>
                     <Activity size={16} className="text-amber-400" />
                   </div>
-                  <div className="text-2xl font-bold text-white tracking-tight">
+                  <div className="text-2xl tabular-nums font-bold text-white tracking-tight">
                     {stats.active_24h}
                   </div>
                   <div className="text-[11px] text-zinc-400 mt-1 font-medium">
@@ -201,11 +214,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
                 {/* 3. Total Plays */}
                 <div className="p-3.5 rounded-xl bg-[#1c1c1c] border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-medium">Прослушиваний</span>
+                  <div className="flex items-start justify-between gap-2 mb-2 [&>svg]:shrink-0">
+                    <span className="min-w-0 text-xs text-zinc-400 font-medium">Прослушиваний</span>
                     <Headphones size={16} className="text-[#1DB954]" />
                   </div>
-                  <div className="text-2xl font-bold text-white tracking-tight">
+                  <div className="text-2xl tabular-nums font-bold text-white tracking-tight">
                     {stats.total_plays}
                   </div>
                   <div className="text-[11px] text-[#1DB954] mt-1 font-medium">
@@ -215,11 +228,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
                 {/* 4. Total Favorites */}
                 <div className="p-3.5 rounded-xl bg-[#1c1c1c] border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-medium">В избранном</span>
+                  <div className="flex items-start justify-between gap-2 mb-2 [&>svg]:shrink-0">
+                    <span className="min-w-0 text-xs text-zinc-400 font-medium">В избранном</span>
                     <Heart size={16} className="text-rose-400" />
                   </div>
-                  <div className="text-2xl font-bold text-white tracking-tight">
+                  <div className="text-2xl tabular-nums font-bold text-white tracking-tight">
                     {stats.total_favorites}
                   </div>
                   <div className="text-[11px] text-zinc-400 mt-1 font-medium">
@@ -229,11 +242,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
                 {/* 5. Playlists */}
                 <div className="p-3.5 rounded-xl bg-[#1c1c1c] border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-medium">Плейлистов</span>
+                  <div className="flex items-start justify-between gap-2 mb-2 [&>svg]:shrink-0">
+                    <span className="min-w-0 text-xs text-zinc-400 font-medium">Плейлистов</span>
                     <ListMusic size={16} className="text-purple-400" />
                   </div>
-                  <div className="text-2xl font-bold text-white tracking-tight">
+                  <div className="text-2xl tabular-nums font-bold text-white tracking-tight">
                     {stats.total_playlists}
                   </div>
                   <div className="text-[11px] text-zinc-400 mt-1 font-medium">
@@ -243,16 +256,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
                 {/* 6. Disk Cache */}
                 <div className="p-3.5 rounded-xl bg-[#1c1c1c] border border-white/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-zinc-400 font-medium">Кэш MP3 файлов</span>
+                  <div className="flex items-start justify-between gap-2 mb-2 [&>svg]:shrink-0">
+                    <span className="min-w-0 text-xs text-zinc-400 font-medium">Аудиокэш</span>
                     <HardDrive size={16} className="text-cyan-400" />
                   </div>
-                  <div className="text-2xl font-bold text-white tracking-tight">
+                  <div className="text-2xl tabular-nums font-bold text-white tracking-tight">
                     {stats.cache_size_mb.toFixed(1)}{' '}
                     <span className="text-xs text-zinc-400 font-normal">MB</span>
                   </div>
                   <div className="text-[11px] text-zinc-400 mt-1 font-medium">
-                    {stats.cache_files} треков / 1000 MB
+                    Файлов: {stats.cache_files}{stats.cache_max_mb > 0 && <> · лимит {stats.cache_max_mb} МБ</>}
                   </div>
                 </div>
               </div>
@@ -268,14 +281,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                 </p>
               </div>
             </>
-          ) : stats && activeTab === 'users' ? (
+          ) : activeTab === 'users' ? (
             /* Users Tab */
             <div className="space-y-2">
               <div className="text-xs font-semibold text-zinc-400 mb-1 px-1">
-                Последние зарегистрированные пользователи:
+                Последние регистрации
               </div>
 
-              {users.map((u) => (
+              <input type="search" aria-label="Найти в списке пользователей" value={query}
+                onChange={event => setQuery(event.target.value)} placeholder="Имя, @username или ID"
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white" />
+              {visibleUsers.length === 0 && (users.length > 0 || !error) && <p className="p-3 text-sm text-zinc-400">{term ? 'Совпадений нет.' : 'Пока нет пользователей.'}</p>}
+              {visibleUsers.map((u) => (
                 <div
                   key={u.telegram_id}
                   className="flex items-center justify-between p-3 rounded-xl bg-[#1c1c1c] border border-white/5 hover:bg-[#252525] transition"
@@ -290,7 +307,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-sm text-zinc-300">
-                          {u.first_name[0] || 'U'}
+                          {u.first_name?.[0] || 'U'}
                         </div>
                       )}
                       {u.is_online && (
@@ -300,7 +317,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
 
                     <div className="min-w-0">
                       <div className="font-semibold text-xs text-white truncate flex items-center gap-1.5">
-                        <span>{u.first_name}</span>
+                        <span className="truncate">{u.first_name}</span>
                       </div>
                       <div className="text-[11px] text-zinc-400 truncate">
                         {u.username} • ID: {u.telegram_id}
@@ -331,7 +348,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
         {/* Footer Actions */}
         <div className="p-4 border-t border-white/10 bg-[#181818]/60 flex items-center justify-between gap-3">
           <button
-            onClick={handleCopyReport}
+            disabled={!stats} onClick={handleCopyReport}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-300 hover:text-white transition active:scale-95"
           >
             {copied ? (
@@ -358,6 +375,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </DialogSurface>
   );
-};
+}

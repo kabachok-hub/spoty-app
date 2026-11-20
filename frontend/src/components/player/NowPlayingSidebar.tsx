@@ -1,4 +1,4 @@
-import { ArtistNames } from './ArtistNames';
+import { ArtistNames, useTrackArtistCredits } from './ArtistNames';
 import { createPortal } from 'react-dom';
 import { TrackCanvas, useTrackCanvas } from './TrackCanvas';
 import { refreshRecording } from '../../hooks/refreshRecording';
@@ -61,10 +61,14 @@ export const NowPlayingSidebar: React.FC = () => {
   );
   const toggleLike = useUserStore((state) => state.toggleLike);
 
-  const isFollowing = useUserStore((state) =>
-    currentTrack?.artist_id ? state.isFollowing(currentTrack.artist_id) : false
+  const credits = useTrackArtistCredits(currentTrack);
+  const primaryArtist = credits?.find(artist => artist.id && artist.name) ?? (
+    currentTrack?.artist_id ? { id: currentTrack.artist_id, name: currentTrack.artist_name } : undefined
   );
+  const isFollowing = useUserStore((state) => primaryArtist ? state.isFollowing(primaryArtist.id) : false);
   const toggleFollowArtist = useUserStore((state) => state.toggleFollowArtist);
+  const [pendingArtist, setPendingArtist] = useState<string>();
+  const [followError, setFollowError] = useState<string>();
 
   const { haptic } = useTelegram();
   const [activeTab, setActiveTab] = useState<'lyrics' | 'about'>('lyrics');
@@ -103,20 +107,20 @@ export const NowPlayingSidebar: React.FC = () => {
     setOpen(false);
   };
 
-  const handleArtistClick = () => {
-    if (!currentTrack) return;
-    haptic.selection();
-    openArtist(currentTrack.artist_id, currentTrack.artist_name);
-  };
-
-  const handleFollowToggle = () => {
-    if (!currentTrack?.artist_id) return;
+  const handleFollowToggle = async () => {
+    if (!currentTrack || !primaryArtist || pendingArtist) return;
     haptic.impact('medium');
-    toggleFollowArtist({
-      id: currentTrack.artist_id,
-      name: currentTrack.artist_name,
-      picture_url: currentTrack.artist_picture || currentTrack.cover_url || '',
-    });
+    setPendingArtist(primaryArtist.id);
+    setFollowError(undefined);
+    try {
+      const following = await toggleFollowArtist({
+        ...primaryArtist,
+        picture_url: currentTrack.artist_picture || currentTrack.cover_url || '',
+      });
+      if (following === isFollowing) setFollowError(primaryArtist.id);
+    } finally {
+      setPendingArtist(undefined);
+    }
   };
 
   const handleShare = () => {
@@ -222,7 +226,7 @@ export const NowPlayingSidebar: React.FC = () => {
           {/* Album Artwork: Vinyl Record Mode or Square Cover */}
           {canvas ? <div className="-mx-4 -mt-4" data-testid="canvas-hero">
             <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying}>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#141414] via-black/65 to-transparent px-5 pb-5 pt-24">
+              <div className="spoty-sidebar-canvas-title absolute inset-x-0 bottom-0 px-5 pb-4 pt-16">
                 <h1 className="text-[23px] leading-tight font-extrabold text-white break-words line-clamp-2 drop-shadow-sm">{currentTrack.title}</h1>
                 <span className="mt-2 max-w-full text-left text-sm font-medium text-white/85 line-clamp-2"><ArtistNames track={currentTrack} /></span>
               </div>
@@ -265,12 +269,6 @@ export const NowPlayingSidebar: React.FC = () => {
                   isPlaying ? 'scale-105' : 'scale-100'
                 } ${coverFilter !== 'none' ? `filter-cover-${coverFilter}` : ''}`}
               />
-              {isPlaying && (
-                <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-ping" />
-                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">Играет</span>
-                </div>
-              )}
             </div>
           )}
 
@@ -352,13 +350,13 @@ export const NowPlayingSidebar: React.FC = () => {
 
         {/* ── TAB 1: Live Karaoke Synchronized Lyrics ── */}
         {activeTab === 'lyrics' && (
-          <div className="p-3.5 rounded-2xl bg-[#1e1e1e]/70 border border-white/5">
+          <div className="px-1">
             <LyricsPanel
               trackId={currentTrack.id}
               artist={currentTrack.artist_name}
               title={currentTrack.title}
               duration={currentTrack.duration}
-              maxHeightClass="max-h-[42vh]"
+              maxHeightClass="max-h-[42vh]" minimal
             />
           </div>
         )}
@@ -372,28 +370,31 @@ export const NowPlayingSidebar: React.FC = () => {
                 Об исполнителе
               </span>
 
-              <div className="flex items-center justify-between">
-                <div
-                  onClick={handleArtistClick}
-                  className="cursor-pointer hover:underline"
-                >
-                  <div className="text-base font-bold text-white">
-                    <ArtistNames track={currentTrack} />
-                  </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  {primaryArtist ? <button type="button" onClick={() => openArtist(primaryArtist.id, primaryArtist.name)}
+                    className="block max-w-full truncate text-left text-base font-bold text-white hover:underline">
+                    {primaryArtist.name}
+                  </button> : <div className="truncate text-base font-bold text-white">{currentTrack.artist_name}</div>}
                   <div className="text-xs text-zinc-400">Основной исполнитель</div>
                 </div>
 
-                <button
+                {primaryArtist && <button
                   onClick={handleFollowToggle}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition active:scale-95 border ${
+                  disabled={Boolean(pendingArtist)}
+                  aria-pressed={isFollowing}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition active:scale-95 border ${
                     isFollowing
                       ? 'bg-transparent border-white/30 text-white hover:border-white'
                       : 'bg-white border-white text-black hover:scale-105'
                   }`}
                 >
-                  {isFollowing ? 'Уже подписаны' : 'Подписаться'}
-                </button>
+                  {pendingArtist === primaryArtist.id ? 'Сохраняем…' : isFollowing ? 'Уже подписаны' : 'Подписаться'}
+                </button>}
               </div>
+              {followError && followError === primaryArtist?.id && <p role="alert" className="text-xs text-rose-300">
+                Не удалось изменить подписку. Попробуй ещё раз.
+              </p>}
             </div>
 
             {/* Track Credits Card */}

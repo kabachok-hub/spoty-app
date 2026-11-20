@@ -269,3 +269,16 @@
   .desktop-library { display:block; position:sticky; top:82px; align-self:flex-start; width:248px; flex-shrink:0; margin:12px 8px; padding:16px 10px; height:calc(100dvh - 180px); overflow:auto; border:1px solid rgba(255,255,255,.07); border-radius:14px; }
   .spoty-main { padding-top:12px; }
 }
+
+.spoty-dialog {
+  margin: auto;
+  width: calc(100% - 1.5rem);
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  color-scheme: dark;
+}
+.spoty-dialog::backdrop { background: rgb(0 0 0 / 72%); }
+body:has(.spoty-dialog[open]) { overflow: hidden; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-color, #1db954);
+  outline-offset: 2px;
+}

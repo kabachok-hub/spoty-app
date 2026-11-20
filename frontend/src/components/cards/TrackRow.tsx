@@ -233,7 +233,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/10 text-left text-zinc-200"
               >
-                <Download size={16} className="text-[#1DB954]" /> Скачать MP3
+                <Download size={16} className="text-[#1DB954]" /> Скачать аудио
               </button>
 
               <button

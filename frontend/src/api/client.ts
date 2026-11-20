@@ -157,8 +157,8 @@ export const api = {
     const res = await apiClient.get<Playlist>(`/playlists/${id}`);
     return res.data;
   },
-  createPlaylist: async (title: string, description?: string): Promise<Playlist> => {
-    const res = await apiClient.post<Playlist>('/playlists', { title, description });
+  createPlaylist: async (title: string, description?: string, isPublic = true): Promise<Playlist> => {
+    const res = await apiClient.post<Playlist>('/playlists', { title, description, is_public: isPublic });
     return res.data;
   },
   deletePlaylist: async (id: string): Promise<void> => {
@@ -196,7 +196,7 @@ export const api = {
     const url = `${API_BASE}/stream?track_id=${encodeURIComponent(track.id)}&q=${encodeURIComponent(q)}&download=1`;
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `${q}.mp3`);
+    link.setAttribute('download', '');
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();

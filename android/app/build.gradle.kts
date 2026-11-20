@@ -9,8 +9,8 @@ android {
         applicationId = "app.spoty.mobile"
         minSdk = 23
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.3.0"
+        versionCode = 14
+        versionName = "0.3.1"
         buildConfigField("String", "SERVER_ORIGIN", "\"$serverOrigin\"")
     }
     buildFeatures { buildConfig = true }

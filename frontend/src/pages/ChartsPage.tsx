@@ -1,11 +1,12 @@
+import { MoodRadio } from '../components/layout/MoodRadio';
 import React, { useEffect, useState } from 'react';
-import { Play, Globe, Flame, RefreshCw } from 'lucide-react';
+import { Play, Globe, RefreshCw } from 'lucide-react';
 import { Track, ChartsData } from '../api/types';
-import { api, apiClient } from '../api/client';
+import { apiClient } from '../api/client';
 import { TrackRow } from '../components/cards/TrackRow';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ScrollableRow } from '../components/ui/ScrollableRow';
-import { usePlayerStore, ActiveMixContext } from '../store/playerStore';
+import { usePlayerStore } from '../store/playerStore';
 import { useTelegram } from '../hooks/useTelegram';
 
 interface ChartsPageProps {
@@ -13,14 +14,7 @@ interface ChartsPageProps {
   onSelectAlbum: (albumId: string) => void;
 }
 
-const MOODS = [
-  { emoji: '🌙', label: 'Ночная', query: 'night drive', fallback: 'lo-fi beats', gradient: 'from-[#0d0d2b] to-[#2d1b69]' },
-  { emoji: '🔥', label: 'Хайп', query: 'hype trap', fallback: 'russian rap', gradient: 'from-[#4a0000] to-[#c0392b]' },
-  { emoji: '😢', label: 'Меланхолия', query: 'sad songs', fallback: 'melancholy', gradient: 'from-[#0a1628] to-[#1565c0]' },
-  { emoji: '🎉', label: 'Вечеринка', query: 'party hits', fallback: 'dance hits', gradient: 'from-[#003300] to-[#1DB954]' },
-  { emoji: '🧘', label: 'Фокус', query: 'deep focus', fallback: 'study music', gradient: 'from-[#1a1800] to-[#e6a817]' },
-  { emoji: '❤️', label: 'Романтика', query: 'love songs', fallback: 'romantic songs', gradient: 'from-[#2a0010] to-[#e91e63]' },
-];
+
 
 type ChartKind = 'russian' | 'global';
 interface ChartState { data: ChartsData | null; loading: boolean; error: boolean }
@@ -30,7 +24,6 @@ export const ChartsPage: React.FC<ChartsPageProps> = ({ onSelectAlbum }) => {
     russian: { data: null, loading: true, error: false },
     global: { data: null, loading: true, error: false },
   });
-  const [activeMood, setActiveMood] = useState<string | null>(null);
   const { haptic } = useTelegram();
 
   const loadChart = async (kind: ChartKind, signal?: AbortSignal) => {
@@ -50,57 +43,6 @@ export const ChartsPage: React.FC<ChartsPageProps> = ({ onSelectAlbum }) => {
     return () => controller.abort();
   }, []);
 
-  const handleMoodPlay = async (mood: typeof MOODS[0]) => {
-    haptic.impact('medium');
-    setActiveMood(mood.label);
-
-    // Synchronously prime the audio element within the user gesture context!
-    const audio = document.getElementById('spotify-native-audio') as HTMLAudioElement;
-    if (audio) {
-      audio.play().catch(() => {});
-    }
-
-    try {
-      let res = await api.search(mood.query, 'track', 30);
-      let tracks = res.tracks || [];
-
-      // Fallback: if search returned nothing, try fallback keyword
-      if (tracks.length === 0 && mood.fallback) {
-        res = await api.search(mood.fallback, 'track', 30);
-        tracks = res.tracks || [];
-      }
-
-      if (tracks.length > 0) {
-        const moodIdx = MOODS.findIndex((m) => m.label === mood.label);
-        const nextMood =
-          moodIdx !== -1 && moodIdx < MOODS.length - 1 ? MOODS[moodIdx + 1] : MOODS[0];
-
-        const moodContext: ActiveMixContext = {
-          id: `mood-${mood.label}`,
-          title: `${mood.emoji} ${mood.label}`,
-          query: mood.query,
-          fallbackQuery: mood.fallback,
-          type: 'mood_radio',
-          nextMix: nextMood
-            ? {
-                id: `mood-${nextMood.label}`,
-                title: `${nextMood.emoji} ${nextMood.label}`,
-                query: nextMood.query,
-              }
-            : null,
-        };
-
-        usePlayerStore.getState().setActiveContextUri(`mood-${mood.label}`);
-        usePlayerStore.getState().setActiveMix(moodContext);
-        usePlayerStore.getState().playTrack(tracks[0], tracks, `mood-${mood.label}`, moodContext);
-      }
-    } catch (e) {
-      console.error('Mood play error:', e);
-    } finally {
-      setTimeout(() => setActiveMood(null), 1200);
-    }
-  };
-
   const handlePlayChart = (tracks: Track[], startIdx: number) => {
     haptic.impact('medium');
     if (tracks.length > startIdx) {
@@ -111,30 +53,7 @@ export const ChartsPage: React.FC<ChartsPageProps> = ({ onSelectAlbum }) => {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 pb-36 md:pb-28 select-none animate-fade-in">
 
-      {/* ── Mood Radio ── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Flame size={18} className="text-orange-400" />
-          <h2 className="text-lg font-bold text-white">Радио по настроению</h2>
-        </div>
-        <div className="grid grid-cols-3 gap-2.5">
-          {MOODS.map((mood) => (
-            <button
-              key={mood.label}
-              onClick={() => handleMoodPlay(mood)}
-              className={`bg-gradient-to-br ${mood.gradient} rounded-xl p-3.5 flex flex-col items-start gap-1.5 active:scale-95 transition-all duration-150 shadow-lg relative overflow-hidden`}
-            >
-              {activeMood === mood.label && (
-                <div className="absolute inset-0 bg-white/10 flex items-center justify-center">
-                  <Play size={20} className="text-white fill-white animate-pulse" />
-                </div>
-              )}
-              <span className="text-2xl leading-none">{mood.emoji}</span>
-              <span className="text-[11px] font-bold text-white/90 leading-tight text-left">{mood.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <MoodRadio />
 
       {(['russian', 'global'] as ChartKind[]).map(kind => {
         const section = sections[kind];

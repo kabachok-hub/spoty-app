@@ -73,7 +73,15 @@ export const FullscreenPlayer: React.FC = () => {
   const { isActive: isTimerActive, timeLeft, formatTime } = useSleepTimer();
 
   const [activeTab, setActiveTab] = useState<PlayerTab>('player');
-  const canvas = useTrackCanvas(currentTrack?.id, isFullscreen && activeTab !== 'lyrics');
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setWide(media.matches);
+    media.addEventListener('change', update);
+    update();
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const canvas = useTrackCanvas(currentTrack?.id, isFullscreen);
   const [narrow, setNarrow] = useState(() => window.innerWidth < 768);
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -361,7 +369,7 @@ export const FullscreenPlayer: React.FC = () => {
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 hover:bg-white/10 text-left text-zinc-200 active:bg-white/15"
                   >
                     <Download size={17} className="text-[#1DB954]" />
-                    <span>Скачать MP3</span>
+                    <span>Скачать аудио</span>
                   </button>
 
                   <button
@@ -381,8 +389,10 @@ export const FullscreenPlayer: React.FC = () => {
         </div>
 
         {/* ── Album Artwork ── */}
-        {activeTab!=='lyrics' && !mobileCanvas && <div className="my-3 flex items-center justify-center flex-shrink-0">
-          {canvas ? <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying} fullscreen /> : playerStyle === 'vinyl' ? (
+        <div className={wide ? 'spoty-fullscreen-columns' : 'flex flex-1 min-h-0 flex-col'}>
+          <section className={wide ? 'spoty-fullscreen-main' : 'contents'}>
+        {(wide || activeTab !== 'lyrics') && !mobileCanvas && <div className="my-3 flex items-center justify-center flex-shrink-0">
+          {canvas ? <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title} playing={isPlaying} fullscreen expanded={wide} /> : playerStyle === 'vinyl' ? (
             /* VINYL RECORD MODE (Dootify Vinyl Style) */
             <div className="relative aspect-square w-full max-w-[260px] sm:max-w-[310px] max-h-[34vh] flex items-center justify-center">
               {/* Spinning Vinyl Disc */}
@@ -429,7 +439,7 @@ export const FullscreenPlayer: React.FC = () => {
         </div>}
 
         {/* ── Lyrics / Player / Similar Tab Bar ── */}
-        <div className="relative z-10 flex gap-1 bg-white/6 rounded-xl p-1 mb-3 flex-shrink-0">
+        {!wide && <div className="relative z-10 flex gap-1 bg-white/6 rounded-xl p-1 mb-3 flex-shrink-0">
           <button
             onClick={() => { haptic.selection(); setActiveTab('player'); }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition ${
@@ -463,10 +473,10 @@ export const FullscreenPlayer: React.FC = () => {
             <ListMusic size={14} />
             Похожие
           </button>
-        </div>
+        </div>}
 
         {/* ── Track Meta & Controls (Player Tab) ── */}
-        {activeTab === 'player' && (
+        {(wide || activeTab === 'player') && (
           <div className={`relative z-10 space-y-3 flex-1 ${mobileCanvas ? 'flex flex-col justify-end' : ''}`}>
             {/* Title & Like */}
             <div className={`grid grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center gap-3 ${
@@ -599,22 +609,41 @@ export const FullscreenPlayer: React.FC = () => {
           </div>
         )}
 
+          </section>
+
+          <section className={wide ? 'spoty-fullscreen-details' : 'contents'} aria-label={wide ? 'Текст и похожие треки' : undefined}>
+        {wide && (
+          <div className="spoty-fullscreen-details-tabs">
+            <button onClick={() => setActiveTab('lyrics')} aria-pressed={activeTab !== 'similar'}>
+              <FileText size={16} /> Текст песни
+            </button>
+            <button onClick={() => setActiveTab('similar')} aria-pressed={activeTab === 'similar'}>
+              <ListMusic size={16} /> Похожие
+            </button>
+          </div>
+        )}
         {/* ── Lyrics Tab ── */}
-        {activeTab === 'lyrics' && (
+        {(wide ? activeTab !== 'similar' : activeTab === 'lyrics') && (
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            <div className="mb-3 flex items-center gap-3 flex-shrink-0">
-              <img src={currentTrack.cover_url || '/placeholder.png'} alt="" className="w-12 h-12 rounded-xl object-cover shrink-0"/>
+            {!wide && <div className="spoty-mobile-lyrics-track">
+              {canvas ? (
+                <TrackCanvas src={canvas} cover={currentTrack.cover_url || ''} title={currentTrack.title}
+                  playing={isPlaying} fullscreen compact />
+              ) : (
+                <img src={currentTrack.cover_url || '/placeholder.png'} alt="" className="size-14 rounded-xl object-cover shrink-0" />
+              )}
               <div className="min-w-0 flex-1"><h2 className="text-lg font-extrabold text-white truncate">{currentTrack.title}</h2>
               <p className="text-sm text-zinc-400 truncate"><ArtistNames track={currentTrack} /></p></div>
               <button onClick={togglePlay} className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center shrink-0" aria-label={isPlaying?'Пауза':'Продолжить воспроизведение'}>{isPlaying?<Pause size={20}/>:<Play size={20}/>}</button>
-            </div>
+            </div>}
             <LyricsPanel
               trackId={currentTrack.id}
               artist={currentTrack.artist_name}
               title={currentTrack.title}
               duration={currentTrack.duration}
               maxHeightClass="max-h-none"
-              className="min-h-0 flex-1"
+              minimal
+              className={wide ? 'min-h-0 flex-1' : 'spoty-mobile-lyrics min-h-0 flex-1'}
             />
           </div>
         )}
@@ -679,6 +708,8 @@ export const FullscreenPlayer: React.FC = () => {
             )}
           </div>
         )}
+          </section>
+        </div>
       </div>
 
       {/* Sleep Timer Modal */}

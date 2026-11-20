@@ -1,6 +1,7 @@
 import type { ActiveMixContext } from '../store/playerStore';
 export interface Track {
   artists?: { id: string; name: string }[];
+  genres?: string[];
   playback_context?: ActiveMixContext; // Local queue origin, applied when this song starts.
   queued_next?: boolean; // Local explicit queue priority; consumed when selected.
   recommended_automatically?: boolean;

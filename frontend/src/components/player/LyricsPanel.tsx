@@ -12,6 +12,7 @@ interface LyricsPanelProps {
   duration?: number;
   className?: string;
   maxHeightClass?: string;
+  minimal?: boolean;
 }
 
 export const LyricsPanel: React.FC<LyricsPanelProps> = ({
@@ -21,6 +22,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
   duration = 0,
   className = '',
   maxHeightClass = 'max-h-[50vh]',
+  minimal = false,
 }) => {
   const [syncedRaw, setSyncedRaw] = useState<string | null>(null);
   const [plainRaw, setPlainRaw] = useState<string | null>(null);
@@ -82,16 +84,18 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
       const containerRect = container.getBoundingClientRect();
       // Current position of the line relative to container top
       const lineRelativeTop = lineRect.top - containerRect.top;
+      if (minimal && lineRelativeTop >= container.clientHeight * 0.18
+          && lineRect.bottom <= containerRect.top + container.clientHeight * 0.68) return;
       // We want to place the active line at ~30% from the container top
       const targetOffset = container.clientHeight * 0.30;
       // Adjust scroll by the difference
       const scrollAdjust = lineRelativeTop - targetOffset;
       container.scrollTo({
         top: container.scrollTop + scrollAdjust,
-        behavior: 'smooth',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
       });
     }
-  }, [activeIndex]);
+  }, [activeIndex, minimal]);
 
   const handleLineClick = (index:number) => {
     haptic.selection();
@@ -122,7 +126,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
   return (
     <div className={`flex flex-col h-full w-full select-none ${className}`}>
       {/* ── Lyrics Header ── */}
-      <div className="flex flex-wrap items-center justify-between pb-2 mb-1 px-1 border-b border-white/5 flex-shrink-0 gap-2">
+      {!minimal && <div className="flex flex-wrap items-center justify-between pb-2 mb-1 px-1 border-b border-white/5 flex-shrink-0 gap-2">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1DB954]">
           {isSynced ? (
             <>
@@ -137,7 +141,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           )}
         </div>
 
-      </div>
+      </div>}
       {!isSynced && <p className="text-xs text-zinc-400 mb-3">Точная синхронизация пока недоступна. Текст можно прокручивать вручную.</p>}
 
       {/* ── Synchronized Karaoke Lyrics List ── */}
@@ -146,11 +150,11 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
           ref={containerRef}
           onWheel={()=>{manualScrollUntil.current=Date.now()+6000;}}
           onTouchMove={()=>{manualScrollUntil.current=Date.now()+6000;}}
-          style={{
+          style={minimal ? undefined : {
             maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, black 10%, black 90%, rgba(0,0,0,0.6) 100%)',
             WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, black 10%, black 90%, rgba(0,0,0,0.6) 100%)',
           }}
-          className={`flex-1 min-h-0 overflow-y-auto no-scrollbar px-1 py-8 ${maxHeightClass}`}
+          className={`flex-1 min-h-0 overflow-y-auto no-scrollbar px-1 ${minimal ? 'py-4' : 'py-8'} ${maxHeightClass}`}
         >
           <div className="flex flex-col gap-4">
             {parsedLines.map((line, idx) => {
@@ -175,7 +179,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({
                   key={idx}
                   ref={(el) => (lineRefs.current[idx] = el)}
                   onClick={() => handleLineClick(idx)}
-                  style={{
+                  aria-current={isActive ? 'time' : undefined}
+                  className={minimal ? 'spoty-fullscreen-lyric-line' : undefined}
+                  style={minimal ? undefined : {
                     opacity: isActive ? 1 : opacity,
                     transform: isActive ? 'scale(1.04) translateX(4px)' : 'scale(1) translateX(0px)',
                     transition: 'opacity 600ms cubic-bezier(0.4, 0, 0.2, 1), transform 500ms cubic-bezier(0.4, 0, 0.2, 1), color 500ms ease, text-shadow 500ms ease',

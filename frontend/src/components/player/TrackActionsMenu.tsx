@@ -28,7 +28,7 @@ export function TrackActionsMenu({ track }: { track: Track }) {
     {position && createPortal(<div ref={menu} role="menu" aria-label="Действия с треком" style={{ position: 'fixed', ...position, width: 240, maxHeight: '70dvh', zIndex: 150 }} className="overflow-y-auto rounded-2xl border border-white/10 bg-[#202125] p-1.5 shadow-2xl text-white" onClick={e => e.stopPropagation()}>
       <button role="menuitem" className={item} onClick={() => { setPosition(undefined); setPlaylist(true); }}><ListPlus size={17} />В плейлист</button>
       <button role="menuitem" className={item} onClick={async () => { try { const site = import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin; await navigator.clipboard.writeText(`${site}/?trackId=${encodeURIComponent(track.id)}`); setNotice('Ссылка скопирована'); } catch { setNotice('Не удалось скопировать ссылку'); } }}><Link size={17} />Скопировать ссылку</button>
-      <button role="menuitem" className={item} onClick={() => { api.downloadTrack(track); setPosition(undefined); }}><Download size={17} />Скачать MP3</button>
+      <button role="menuitem" className={item} onClick={() => { api.downloadTrack(track); setPosition(undefined); }}><Download size={17} />Скачать аудио</button>
       <button role="menuitem" className={item} disabled={busy} onClick={async () => { setBusy(true); try { await refreshRecording(track); setNotice('Аудио обновлено'); } catch { setNotice('Не удалось обновить аудио'); } finally { setBusy(false); } }}><RefreshCw size={17} className={busy ? 'animate-spin' : ''} />{busy ? 'Обновляем…' : 'Не тот трек? Обновить'}</button>
       {notice && <p role="status" className="px-4 py-2 text-xs text-zinc-300">{notice}</p>}
     </div>, document.body)}

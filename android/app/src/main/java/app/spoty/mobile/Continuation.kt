@@ -9,6 +9,7 @@ class Continuation(private val api: AppHttp) {
     private fun encode(value: String) = URLEncoder.encode(value, "UTF-8")
     fun next(track: JSONObject, existing: List<String>, token: String?): List<JSONObject> {
         val context = track.optJSONObject("playback_context")
+        if (context?.optString("type") == "mood_radio") return emptyList()
         val tuning = track.optJSONObject("mix_tuning")
         val tuningParams = "&novelty=${tuning?.optInt("novelty",70)?.coerceIn(0,100) ?: 70}&diversity=${tuning?.optInt("diversity",50)?.coerceIn(0,100) ?: 50}"
         val visited = mutableSetOf<String>()

@@ -6,6 +6,7 @@ import type { Track } from '../../api/types';
 import { useNavigationStore } from '../../store/navigationStore';
 
 type Credits = NonNullable<Track['artists']>;
+type TrackCredits = Pick<Track, 'id' | 'artist_name' | 'artists' | 'artist_id'>;
 const useCredits = create<{ rows: Map<string, { artists: Credits; until: number }> }>(() => ({ rows: new Map() }));
 const pending = new Map<string, Promise<void>>();
 async function load(id: string): Promise<void> {
@@ -16,7 +17,14 @@ async function load(id: string): Promise<void> {
     let artists: Credits = [];
     try {
       const { data } = await apiClient.get<Track>(`/search/tracks/${encodeURIComponent(id)}`, { timeout: 6000 });
-      if (String(data.id) === id && Array.isArray(data.artists)) artists = data.artists.filter(a => a && typeof a.name === 'string' && typeof a.id === 'string').slice(0, 20);
+      if (String(data.id) === id) {
+        if (Array.isArray(data.artists)) {
+          artists = data.artists.filter(a => a && typeof a.name === 'string' && typeof a.id === 'string').slice(0, 20);
+        }
+        if (!artists.length && data.artist_id && data.artist_name) {
+          artists = [{ id: String(data.artist_id), name: data.artist_name }];
+        }
+      }
     } catch { /* Public credits are optional; retain known artist names on failure. */ }
     const rows = new Map(useCredits.getState().rows);
     rows.delete(id);rows.set(id, { artists, until: Date.now() + (artists.length ? 3600000 : 60000) });
@@ -26,17 +34,22 @@ async function load(id: string): Promise<void> {
   pending.set(id, task);return task;
 }
 
-/** Display-only enrichment: never replaces a playing track or its audio source. */
-export function ArtistNames({ track }: { track: Pick<Track, 'id' | 'artist_name' | 'artists' | 'artist_id'> }) {
-  const openArtist = useNavigationStore(s => s.openArtist);
+/** Resolves credits without replacing the playing track. */
+export function useTrackArtistCredits(track: TrackCredits | null | undefined) {
+  const id = track?.id;
   const current = usePlayerStore(s => s.currentTrack?.id);
-  const cached = useCredits(s => s.rows.get(track.id));
+  const cached = useCredits(s => id ? s.rows.get(id) : undefined);
   useEffect(() => {
-    if (!track.id || current !== track.id) return;
-    const timer = setTimeout(() => { void load(track.id); }, 500);
+    if (!id || current !== id) return;
+    const timer = setTimeout(() => { void load(id); }, 500);
     return () => clearTimeout(timer);
-  }, [track.id, current]);
-  const credits = cached?.artists.length ? cached.artists : track.artists;
+  }, [id, current]);
+  return cached?.artists.length ? cached.artists : track?.artists;
+}
+
+export function ArtistNames({ track }: { track: TrackCredits }) {
+  const openArtist = useNavigationStore(s => s.openArtist);
+  const credits = useTrackArtistCredits(track);
   const artists = credits?.length ? credits : [{ id: track.artist_id || '', name: track.artist_name }];
   const seen = new Set<string>();
   const unique = artists.filter(a => { if (!a.name || seen.has(a.name)) return false; seen.add(a.name); return true; });

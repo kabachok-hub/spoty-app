@@ -208,7 +208,7 @@ export const App: React.FC = () => {
             </div>)}
 
             {currentView.type === 'artist' && (
-              <ArtistPage
+              <ArtistPage key={currentView.artistId}
                 artistId={currentView.artistId}
                 onBack={handleBack}
                 onSelectAlbum={(albumId) => navigateTo({ type: 'album', albumId })}
@@ -216,14 +216,14 @@ export const App: React.FC = () => {
             )}
 
             {currentView.type === 'album' && (
-              <AlbumPage
+              <AlbumPage key={currentView.albumId}
                 albumId={currentView.albumId}
                 onBack={handleBack}
               />
             )}
 
             {currentView.type === 'playlist' && (
-              <PlaylistPage
+              <PlaylistPage key={currentView.playlistId}
                 playlistId={currentView.playlistId}
                 onBack={handleBack}
               />

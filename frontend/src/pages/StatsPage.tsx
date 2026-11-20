@@ -27,6 +27,7 @@ interface StatsPageProps {
 export const StatsPage: React.FC<StatsPageProps> = ({ onBack }) => {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const playTrack = usePlayerStore((state) => state.playTrack);
@@ -40,12 +41,13 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onBack }) => {
   }, [setupBackButton, onBack]);
 
   const loadStats = async () => {
+    setFailed(false);
     setLoading(true);
     try {
       const data = await api.getMyStats();
       setStats(data);
     } catch (e) {
-      console.error('Failed to load stats:', e);
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -109,6 +111,14 @@ export const StatsPage: React.FC<StatsPageProps> = ({ onBack }) => {
         <Skeleton className="h-48 rounded-2xl" />
       </div>
     );
+  }
+
+  if (failed) {
+    return <div className="mx-auto max-w-md p-6 text-center">
+      <p role="alert" className="mb-4 text-zinc-300">Не удалось загрузить статистику.</p>
+      <button onClick={loadStats} className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black">Повторить</button>
+      <button onClick={onBack} className="ml-2 rounded-full px-5 py-2 text-sm">Назад</button>
+    </div>;
   }
 
   if (!stats || stats.total_plays === 0) {

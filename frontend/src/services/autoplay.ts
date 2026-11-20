@@ -11,6 +11,7 @@ export function orderedMixes(feed: Mix[], context: ActiveMixContext | null): Mix
   return [context?.nextMix, ...ordered].filter((m): m is Mix => !!m?.query && !visited.has(m.id) && !seen.has(m.id) && !!seen.add(m.id));
 }
 export async function planContinuation(track: Track, queue: Track[], context: ActiveMixContext | null): Promise<Track[]> {
+  if (context?.type === 'mood_radio') return [];
   const ids = new Set(queue.map(t => t.id));
   const fresh = (rows: Track[]) => rows.filter(t => !ids.has(t.id) && Number(t.duration) >= 45);
   const visited = new Set([...(context?.visitedMixIds || []), ...(context ? [context.id] : [])]);

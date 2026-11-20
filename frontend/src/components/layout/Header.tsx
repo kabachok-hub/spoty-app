@@ -236,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setAdminOpen(true);
               }}
               className="flex items-center gap-1 p-1.5 sm:px-3 sm:py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 rounded-full text-amber-400 text-xs font-bold transition active:scale-95 shadow-sm"
-              title="Панель администратора"
+              aria-label="Панель администратора" title="Панель администратора"
             >
               <Shield size={14} className="text-amber-400" />
               <span className="hidden sm:inline">Админ</span>

@@ -7,6 +7,7 @@ import { APP_VERSION, openAppUpdate, useAppUpdates } from '../../platform/appUpd
 import { isNativeClient } from '../../platform/nativeBridge';
 import { UpdateAction } from './UpdateAction';
 import { MixTuning } from './MixTuning';
+import { SpotifyImport } from './SpotifyImport';
 
 export function GeneralSettings() {
   const user = useUserStore(s => s.user), language = useSettingsStore(s => s.language);
@@ -18,6 +19,7 @@ export function GeneralSettings() {
       {user && <><button className="spoty-setting-row" onClick={() => { close(); openTasteSetup(); }}><Sparkles size={18}/><span>Музыкальные предпочтения<small>Артисты и рекомендации под ваш вкус</small></span><span>→</span></button>
       <button className="spoty-setting-row" onClick={() => { close(); useNavigationStore.getState().openStats(); }}><BarChart3 size={18}/><span>Статистика прослушиваний</span><span>→</span></button></>}
     </section>
+    <SpotifyImport key={user?.telegram_id} />
     <section className="spoty-setting-section"><h3>Язык</h3><label className="spoty-setting-row"><span>Язык интерфейса</span><select aria-label="Язык интерфейса" value={language} onChange={e => useSettingsStore.getState().setLanguage(e.target.value as 'ru' | 'en')}><option value="ru">Русский</option><option value="en">English</option></select></label></section>
     {isNativeClient() && <section className="spoty-setting-section"><h3>Обновления</h3><div className="spoty-setting-row"><span>Spoty <small>Установлена версия {APP_VERSION}</small></span><button disabled={status === 'checking'} onClick={() => void check(true)} className="spoty-setting-action"><RefreshCw size={16} className={status === 'checking' ? 'animate-spin' : ''}/>Проверить</button></div>
       <p role="status">{release ? `Доступна версия ${release.version}` : status === 'checking' ? 'Проверяем обновления…' : status === 'error' ? 'Не удалось связаться с GitHub. Попробуйте позже.' : status === 'ready' ? 'Установлена актуальная версия.' : 'Приложение сообщит, когда появится новая версия.'}</p>

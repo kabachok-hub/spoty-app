@@ -1,10 +1,10 @@
 import type { Track } from '../api/types';
 
-export const trackSignature = (track: Pick<Track, 'artist_name' | 'title'>): string => {
-  const normalize = (value: string) => (value || '').normalize('NFKC').toLowerCase().replace(/ё/g, 'е')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
-  return normalize(track.artist_name) + '|' + normalize(track.title);
-};
+export const artistKey = (value: string) => (value || '').normalize('NFKC').toLowerCase().replace(/ё/g, 'е')
+  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+export const trackSignature = (track: Pick<Track, 'artist_name' | 'title'>): string =>
+  artistKey(track.artist_name) + '|' + artistKey(track.title);
 
 let hiddenIds = new Set<string>();
 let hiddenKeys = new Set<string>();

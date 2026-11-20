@@ -42,7 +42,7 @@ export function useTrackCanvas(trackId: string | undefined, active: boolean) {
   return enabled && active && !settingsOpen && source && source.owner === owner && source.trackId === trackId ? source.url : undefined;
 }
 
-export function TrackCanvas({ src, cover, title, playing, fullscreen = false, backdrop = false, children }: { src: string; cover: string; title: string; playing: boolean; fullscreen?: boolean; backdrop?: boolean; children?: React.ReactNode }) {
+export function TrackCanvas({ src, cover, title, playing, fullscreen = false, expanded = false, compact = false, backdrop = false, children }: { src: string; cover: string; title: string; playing: boolean; fullscreen?: boolean; expanded?: boolean; compact?: boolean; backdrop?: boolean; children?: React.ReactNode }) {
   const video = useRef<HTMLVideoElement>(null), root = useRef<HTMLDivElement>(null);
   const hidden = useDecorativeHidden(), mode = useVisualMode();
   const [visible, setVisible] = useState(true), [failed, setFailed] = useState(false);
@@ -63,12 +63,16 @@ export function TrackCanvas({ src, cover, title, playing, fullscreen = false, ba
     }); else element.pause();
     return () => { cancelled = true; element.pause(); };
   }, [src, playing, animate]);
-  return <div ref={root} data-testid="track-canvas" className={`isolate overflow-hidden bg-[#141414] ${backdrop ? 'absolute inset-0 pointer-events-none' : fullscreen ? 'relative aspect-[9/16] mx-auto rounded-2xl shadow-xl w-[min(230px,22vh)] max-h-[39vh]' : 'relative w-full h-[clamp(280px,58dvh,560px)]'}`}>
-    <img src={cover || '/placeholder.png'} alt={title} className="absolute inset-0 w-full h-full object-cover" />
-    {animate && <video key={src} ref={video} src={src} muted loop playsInline preload="metadata" poster={cover} onLoadedMetadata={e => {
-      const v = e.currentTarget;
-      if (!Number.isFinite(v.duration) || v.duration < 2.8 || v.duration > 8.5 || v.videoWidth > 1920 || v.videoHeight > 1920) setFailed(true);
-    }} onError={() => setFailed(true)} disablePictureInPicture className="absolute inset-0 w-full h-full object-cover" aria-label={`Canvas: ${title}`} />}
+  const sidebar = !fullscreen && !backdrop;
+  return <div ref={root} data-testid="track-canvas" className={`isolate overflow-hidden ${backdrop ? 'bg-[#141414] absolute inset-0 pointer-events-none' : compact ? 'spoty-mobile-lyrics-canvas relative rounded-xl' : expanded ? 'spoty-fullscreen-canvas relative mx-auto rounded-2xl bg-[#141414] shadow-xl' : fullscreen ? 'bg-[#141414] relative aspect-[9/16] mx-auto rounded-2xl shadow-xl w-[min(230px,22vh)] max-h-[39vh]' : 'relative w-full h-[clamp(300px,66dvh,605px)]'}`}>
+    <div className={`absolute inset-0 ${sidebar ? 'spoty-sidebar-canvas-media' : ''}`}>
+      <img src={cover || '/placeholder.png'} alt={title} className="absolute inset-0 w-full h-full object-cover" />
+      {animate && <video key={src} ref={video} src={src} muted loop playsInline preload="metadata" poster={cover} onLoadedMetadata={e => {
+        const v = e.currentTarget;
+        if (!Number.isFinite(v.duration) || v.duration < 2.8 || v.duration > 8.5 || v.videoWidth > 1920 || v.videoHeight > 1920) setFailed(true);
+      }} onError={() => setFailed(true)} disablePictureInPicture className="absolute inset-0 w-full h-full object-cover" aria-label={`Canvas: ${title}`} />}
+      {sidebar && animate && <div aria-hidden="true" className="spoty-sidebar-canvas-blur" />}
+    </div>
     {backdrop && <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,.65)_0%,rgba(0,0,0,.12)_24%,rgba(0,0,0,.14)_40%,rgba(0,0,0,.82)_69%,rgba(0,0,0,.96)_100%)]" />}
     {children}
   </div>;

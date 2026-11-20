@@ -65,7 +65,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
             const isActive = activeTab === item.id;
             return (
               <button
-                key={item.id}
+                key={item.id} aria-label={item.label} aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleTabClick(item.id)}
                 className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all duration-200 active:scale-95 ${
                   isActive
@@ -98,7 +98,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
             const isActive = activeTab === item.id;
             return (
               <button
-                key={item.id}
+                key={item.id} aria-label={item.label} aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleTabClick(item.id)}
                 className="flex items-center justify-center flex-1 h-full transition-transform active:scale-90"
                 title={item.label}
@@ -125,7 +125,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
           const isActive = activeTab === item.id;
           return (
             <button
-              key={item.id}
+              key={item.id} aria-label={item.label} aria-current={isActive ? 'page' : undefined}
               onClick={() => handleTabClick(item.id)}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors duration-150 ${
                 isActive ? 'text-white' : 'text-zinc-400 hover:text-zinc-200'

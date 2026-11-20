@@ -5,11 +5,17 @@ const { contentBounds, resizeBounds, EDGES } = require('./windowFrame.cjs');
 const { createUpdater } = require('./updater.cjs');
 const root = path.join(__dirname, 'renderer'), server = require('./server-config.json').apiOrigin;
 let window, page, chrome, tray, quitting = false, drag = null;
+function showSpoty() {
+    if (!window) return;
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+}
 protocol.registerSchemesAsPrivileged([{ scheme: 'spoty', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 if (!app.requestSingleInstanceLock())
     app.quit();
 else {
-    app.on('second-instance', () => { window?.show(); window?.focus(); });
+    app.on('second-instance', showSpoty);
     app.whenReady().then(() => {
         nativeTheme.themeSource = 'dark';
         const updater = createUpdater({ directory: path.join(app.getPath('userData'), 'updates'), version: app.getVersion(), fetch: (...args) => net.fetch(...args), launch: file => shell.openPath(file), quit: () => app.quit() });
@@ -80,7 +86,7 @@ else {
         const contents = page.webContents;
         const hidden = () => window.isMinimized() || !window.isVisible();
         const publishVisibility = () => contents.send('spoty:visibility', hidden());
-        for (const name of ['hide', 'show', 'minimize', 'restore']) window.on(name, publishVisibility);
+        for (const name of ['hide', 'show', 'minimize', 'restore', 'focus']) window.on(name, publishVisibility);
         contents.on('did-finish-load', publishVisibility);
         ipcMain.handle('spoty:visibility-state', event => {
             if (event.sender !== contents || event.senderFrame !== contents.mainFrame)
@@ -142,8 +148,8 @@ else {
         });
         tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'icon.png')).resize({ width: 24, height: 24 }));
         tray.setToolTip('Spoty');
-        tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Открыть Spoty', click: () => { window.show(); window.focus(); } }, { label: 'Пауза / продолжить', click: () => contents.send('spoty:toggle-play') }, { type: 'separator' }, { label: 'Выйти', click: () => { quitting = true; app.quit(); } }]));
-        tray.on('double-click', () => { window.show(); window.focus(); });
+        tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Открыть Spoty', click: showSpoty }, { label: 'Пауза / продолжить', click: () => contents.send('spoty:toggle-play') }, { type: 'separator' }, { label: 'Выйти', click: () => { quitting = true; app.quit(); } }]));
+        tray.on('double-click', showSpoty);
         window.on('close', event => { if (!quitting) {
             event.preventDefault();
             window.hide();
@@ -152,5 +158,5 @@ else {
         Promise.all([chrome.webContents.loadURL('spoty://app/chrome.html'), contents.loadURL('spoty://app/index.html')]).then(() => { layout(); window.show(); }).catch(() => window.show());
     });
     app.on('before-quit', () => { quitting = true; });
-    app.on('activate', () => window?.show());
+    app.on('activate', showSpoty);
 }

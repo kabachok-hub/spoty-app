@@ -52,6 +52,7 @@ export const SearchPage: React.FC<SearchPageProps> = ({
   // Debounce search
   useEffect(() => {
     if (!query.trim()) {
+      setSearchError(false);
       setTracks([]);
       setArtists([]);
       setPlaylists([]);
@@ -107,11 +108,12 @@ export const SearchPage: React.FC<SearchPageProps> = ({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label={t('search_placeholder')}
           placeholder={t('search_placeholder')}
           className="w-full bg-[#242424] text-white placeholder-zinc-400 pl-11 pr-10 py-3 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white border border-transparent transition shadow"
         />
         {query && (
-          <button
+          <button aria-label="Очистить поиск"
             onClick={() => {
               haptic.impact('light');
               setQuery('');

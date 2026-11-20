@@ -1,3 +1,4 @@
+import { MoodRadio } from '../components/layout/MoodRadio';
 import { useRecentShelf, mixKey } from '../store/recentShelf';
 import { useBrowseWarmup } from '../platform/useBrowseWarmup';
 import React, { useEffect, useState, useRef } from 'react';
@@ -27,14 +28,7 @@ interface HomePageProps {
 
 type FilterChip = 'all' | 'music' | 'mixes';
 
-const MOODS = [
-  { emoji: '🌙', label: 'Ночная', query: 'night drive', fallback: 'lo-fi beats', gradient: 'from-[#0d0d2b] to-[#2d1b69]' },
-  { emoji: '🔥', label: 'Хайп', query: 'hype trap', fallback: 'russian rap', gradient: 'from-[#4a0000] to-[#c0392b]' },
-  { emoji: '😢', label: 'Меланхолия', query: 'sad songs', fallback: 'melancholy', gradient: 'from-[#0a1628] to-[#1565c0]' },
-  { emoji: '🎉', label: 'Вечеринка', query: 'party hits', fallback: 'dance hits', gradient: 'from-[#003300] to-[#1DB954]' },
-  { emoji: '🧘', label: 'Фокус', query: 'deep focus', fallback: 'study music', gradient: 'from-[#1a1800] to-[#e6a817]' },
-  { emoji: '❤️', label: 'Романтика', query: 'love songs', fallback: 'romantic songs', gradient: 'from-[#2a0010] to-[#e91e63]' },
-];
+
 
 export const HomePage: React.FC<HomePageProps> = ({
   onSelectArtist,
@@ -176,58 +170,6 @@ export const HomePage: React.FC<HomePageProps> = ({
     };
   }, [user]);
 
-  const [activeMood, setActiveMood] = useState<string | null>(null);
-
-  const handleMoodPlay = async (mood: typeof MOODS[0]) => {
-    haptic.impact('medium');
-    setActiveMood(mood.label);
-
-    // Synchronously prime the audio element within the user gesture context!
-    const audio = document.getElementById('spotify-native-audio') as HTMLAudioElement;
-    if (audio) {
-      audio.play().catch(() => {});
-    }
-
-    try {
-      let res = await api.search(mood.query, 'track', 30);
-      let tracks = res.tracks || [];
-
-      // Fallback: try fallback query if first attempt gave 0 tracks
-      if (tracks.length === 0 && mood.fallback) {
-        res = await api.search(mood.fallback, 'track', 30);
-        tracks = res.tracks || [];
-      }
-
-      if (tracks.length > 0) {
-        const moodIdx = MOODS.findIndex((m) => m.label === mood.label);
-        const nextMood =
-          moodIdx !== -1 && moodIdx < MOODS.length - 1 ? MOODS[moodIdx + 1] : MOODS[0];
-
-        const moodContext: ActiveMixContext = {
-          id: `mood-${mood.label}`,
-          title: `${mood.emoji} ${mood.label}`,
-          query: mood.query,
-          fallbackQuery: mood.fallback,
-          type: 'mood_radio',
-          nextMix: nextMood
-            ? {
-                id: `mood-${nextMood.label}`,
-                title: `${nextMood.emoji} ${nextMood.label}`,
-                query: nextMood.query,
-              }
-            : null,
-        };
-
-        usePlayerStore.getState().setActiveContextUri(`mood-${mood.label}`);
-        usePlayerStore.getState().setActiveMix(moodContext);
-        usePlayerStore.getState().playTrack(tracks[0], tracks, `mood-${mood.label}`, moodContext);
-      }
-    } catch (e) {
-      console.error('Mood play error:', e);
-    } finally {
-      setTimeout(() => setActiveMood(null), 1200);
-    }
-  };
 
   const handleMixClick = (mix: MixItem, allMixesList?: MixItem[]) => {
     haptic.impact('light');
@@ -380,43 +322,12 @@ export const HomePage: React.FC<HomePageProps> = ({
       <SyncModal isOpen={syncOpen} onClose={() => setSyncOpen(false)} />
 
 
-      {/* 🎭 Mood Radio */}
-      {filter !== 'mixes' && (
-        <div>
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-base font-bold text-white">🎭 Радио по настроению</h2>
-            <button
-              onClick={() => {
-                haptic.impact('light');
-                useNavigationStore.getState().setActiveTab('charts');
-              }}
-              className="flex items-center gap-1.5 text-xs font-bold text-[#1DB954] hover:text-[#1ed760] transition px-3 py-1 rounded-full bg-[#1DB954]/10 hover:bg-[#1DB954]/20 border border-[#1DB954]/30 active:scale-95 cursor-pointer"
-            >
-              <TrendingUp size={13} />
-              <span>Все Чарты</span>
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {MOODS.map((mood) => {
-              const isLoading = activeMood === mood.label;
-              return (
-                <button
-                  key={mood.label}
-                  onClick={() => handleMoodPlay(mood)}
-                  className={`bg-gradient-to-br ${mood.gradient} rounded-xl p-3 flex flex-col items-start gap-1 active:scale-95 transition-all duration-150 shadow relative overflow-hidden ${
-                    isLoading ? 'ring-2 ring-white/50 scale-95 opacity-80' : ''
-                  }`}
-                >
-                  <span className="text-xl leading-none">{mood.emoji}</span>
-                  <span className="text-[11px] font-bold text-white/90 leading-tight text-left">
-                    {isLoading ? 'Загрузка...' : mood.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {filter !== 'mixes' && <MoodRadio actions={
+        <button type="button" onClick={() => useNavigationStore.getState().setActiveTab('charts')}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-400/25 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-400/10">
+          <TrendingUp size={13} /> Чарты
+        </button>
+      } />}
 
       {isSignedIn && (loading || dailyMixes.some(m => !hiddenMixes.includes(mixKey(m)))) && (<>
       {/* Personalized mixes */}

@@ -23,7 +23,7 @@ let html = readFileSync(resolve(output, 'index.html'), 'utf8');
 html = html.replace(/<script src="https:\/\/telegram.org\/js\/telegram-web-app.js"><\/script>/, '');
 const policy = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' https: data: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://api.github.com ${origin}; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'none'`;
 html = html.replace('<head>', `<head>\n<meta http-equiv="Content-Security-Policy" content="${policy}">`);
-  html = html.replace('<html lang="en" class="dark">', '<html lang="ru" class="dark native-client native-desktop">');
+  html = html.replace('<html lang="ru" class="dark">', '<html lang="ru" class="dark native-client native-desktop">');
 writeFileSync(resolve(output,'native-client.css'),readFileSync(resolve(root,'frontend/src/platform/native-client.css')));
 html=html.replace('</head>','<link rel="stylesheet" href="/native-client.css"></head>');
 writeFileSync(resolve(output, 'index.html'), html);

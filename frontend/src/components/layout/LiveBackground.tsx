@@ -14,10 +14,10 @@ export function extractYouTubeId(url: string): string | null {
 }
 
 export const LiveBackground: React.FC = () => {
+  const backgroundVideo = useRef<HTMLVideoElement>(null);
   const visualMode = useVisualMode();
   const hidden = useDecorativeHidden();
   const budget = visualBudget();
-  const backgroundRef = useRef<HTMLDivElement | null>(null);
   const bgType = useCustomizationStore((state) => state.bgType);
   const videoPresetId = useCustomizationStore((state) => state.videoPresetId);
   const customBgUrl = useCustomizationStore((state) => state.customBgUrl);
@@ -420,27 +420,6 @@ export const LiveBackground: React.FC = () => {
     }
   }, [bgType, customBgUrl]);
 
-  // Pause all background video elements when screen is locked or tab is hidden
-  useEffect(() => {
-    const handleVisibility = () => {
-      const isHidden = decorativeHidden() || visualBudget().freezeVideo;
-      const videos = (isNativeClient() ? backgroundRef.current : document)?.querySelectorAll('video') || [];
-      videos.forEach((v) => {
-        if (v.id !== 'spotify-native-audio') {
-          if (isHidden) {
-            v.pause();
-          } else {
-            v.play().catch(() => {});
-          }
-        }
-      });
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('spoty-host-visibility', handleVisibility);
-    handleVisibility();
-    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('spoty-host-visibility', handleVisibility); };
-  }, [visualMode]);
-
   // Gyroscope 3D Tilt Effect on mobile phones
   useEffect(() => {
     if (bgMobileEffect !== 'tilt' || bgType === 'none' || visualMode === 'economy') {
@@ -530,6 +509,35 @@ export const LiveBackground: React.FC = () => {
           videoSrc.includes('/uploads/backgrounds/')
       ));
 
+  useEffect(() => {
+    const video = backgroundVideo.current;
+    if (!isDirectVideo || !video) return;
+    if (hidden || budget.freezeVideo) {
+      video.pause();
+      return;
+    }
+
+    video.muted = true;
+    const start = video.currentTime;
+    let drewFrame = false;
+    const frame = video.requestVideoFrameCallback?.(() => { drewFrame = true; });
+    const play = () => { void video.play().catch(() => {}); };
+    play();
+    // A restored window can retain a paused or stalled decoder. Recover once.
+    const recovery = window.setTimeout(() => {
+      if (decorativeHidden() || visualBudget().freezeVideo) return;
+      const advanced = frame === undefined ? video.currentTime !== start : drewFrame;
+      if (!video.paused && advanced) return;
+      video.load();
+      play();
+    }, 2000);
+    return () => {
+      window.clearTimeout(recovery);
+      if (frame !== undefined) video.cancelVideoFrameCallback?.(frame);
+      video.pause();
+    };
+  }, [isDirectVideo, videoSrc, hidden, budget.freezeVideo]);
+
   const positionClass =
     bgPosition === 'left'
       ? 'object-left'
@@ -551,7 +559,7 @@ export const LiveBackground: React.FC = () => {
   const dynamicFilter = bgBlur > 0 ? `blur(${Math.min(bgBlur, budget.blur)}px)` : undefined;
 
   return (
-    <div ref={backgroundRef} className="spoty-live-background fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-[#121212]">
+    <div className="spoty-live-background fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-[#121212]">
       {/* 0. Clean Default Background (When bgType is 'none') */}
       {bgType === 'none' && (
         <div
@@ -623,14 +631,9 @@ export const LiveBackground: React.FC = () => {
         >
           <video
             key={videoSrc}
-            autoPlay={!hidden && !budget.freezeVideo}
+            ref={backgroundVideo}
             preload={budget.freezeVideo && bgType === 'video_preset' ? 'none' : 'auto'}
             poster={bgType === 'video_preset' ? selectedPreset.previewUrl : undefined}
-            onLoadedData={event => {
-              const video = event.currentTarget;
-              if (decorativeHidden() || visualBudget().freezeVideo) video.pause();
-              else void video.play().catch(() => {});
-            }}
             loop
             muted
             playsInline
